@@ -69,7 +69,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app, authService, storageService)
+	setupRoutes(app, authService, storageService, dbService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -90,9 +90,10 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService) {
+func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService) {
 	authHandler := handlers.NewAuthHandler(authService)
 	photoHandler := handlers.NewPhotoHandler(storageService)
+	adminHandler := handlers.NewAdminHandler(authService, dbService)
 
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
@@ -103,6 +104,10 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
 	auth.Get("/me", middleware.AuthRequired(authService), authHandler.Me)
+
+	admin := api.Group("/admin")
+	admin.Post("/photographers", middleware.AdminOnly(authService), adminHandler.CreatePhotographer)
+	admin.Get("/photographers", middleware.AdminOnly(authService), adminHandler.ListPhotographers)
 
 	photos := v1.Group("/photos")
 	photos.Post("/", middleware.PhotographerOnly(authService), photoHandler.UploadPhoto)

@@ -49,15 +49,19 @@ func (s *DatabaseService) initSchema() error {
 
 		CREATE TABLE IF NOT EXISTS albums (
 			id SERIAL PRIMARY KEY,
-			name VARCHAR(255) NOT NULL,
+			title VARCHAR(255) NOT NULL,
+			date_taken TIMESTAMP WITH TIME ZONE,
 			description TEXT,
-			owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			is_public BOOLEAN NOT NULL DEFAULT false,
-			created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+			location VARCHAR(500),
+			custom_fields JSONB,
+			thumbnail_photo_id INTEGER,
+			photographer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 		);
 
-		CREATE INDEX IF NOT EXISTS idx_albums_owner_id ON albums(owner_id);
+		CREATE INDEX IF NOT EXISTS idx_albums_photographer_id ON albums(photographer_id);
+		CREATE INDEX IF NOT EXISTS idx_albums_date_taken ON albums(date_taken);
 
 		CREATE TABLE IF NOT EXISTS album_permissions (
 			id SERIAL PRIMARY KEY,
@@ -151,15 +155,49 @@ func (s *DatabaseService) GetUserByUsername(username string) (*models.User, erro
 	return user, nil
 }
 
+func (s *DatabaseService) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
+	query := `
+		SELECT id, email, username, password_hash, role, created_at, updated_at
+		FROM users WHERE role = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := s.db.Query(query, role)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*models.User
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(
+			&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+			&user.Role, &user.CreatedAt, &user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
 func (s *DatabaseService) GetAlbumByID(id int64) (*models.Album, error) {
 	album := &models.Album{}
 	query := `
-		SELECT id, name, description, owner_id, is_public, created_at, updated_at
+		SELECT id, title, date_taken, description, location, custom_fields, 
+		       thumbnail_photo_id, photographer_id, created_at, updated_at
 		FROM albums WHERE id = $1
 	`
 	err := s.db.QueryRow(query, id).Scan(
-		&album.ID, &album.Name, &album.Description, &album.OwnerID,
-		&album.IsPublic, &album.CreatedAt, &album.UpdatedAt,
+		&album.ID, &album.Title, &album.DateTaken, &album.Description, &album.Location,
+		&album.CustomFields, &album.ThumbnailPhotoID, &album.PhotographerID,
+		&album.CreatedAt, &album.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil

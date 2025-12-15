@@ -181,11 +181,7 @@ func (s *AuthService) CanAccessAlbum(userID, albumID int64, requireEdit bool) (b
 		return false, fmt.Errorf("album not found")
 	}
 
-	if album.OwnerID == userID {
-		return true, nil
-	}
-
-	if album.IsPublic && !requireEdit {
+	if album.PhotographerID == int(userID) {
 		return true, nil
 	}
 
