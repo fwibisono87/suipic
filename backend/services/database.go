@@ -25,71 +25,7 @@ func NewDatabaseService(cfg *config.DatabaseConfig) (*DatabaseService, error) {
 
 	service := &DatabaseService{db: db}
 
-	if err := service.initSchema(); err != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
-	}
-
 	return service, nil
-}
-
-func (s *DatabaseService) initSchema() error {
-	schema := `
-		CREATE TABLE IF NOT EXISTS users (
-			id SERIAL PRIMARY KEY,
-			email VARCHAR(255) UNIQUE NOT NULL,
-			username VARCHAR(100) UNIQUE NOT NULL,
-			password_hash VARCHAR(255) NOT NULL,
-			role VARCHAR(50) NOT NULL DEFAULT 'client',
-			created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-		CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-
-		CREATE TABLE IF NOT EXISTS albums (
-			id SERIAL PRIMARY KEY,
-			title VARCHAR(255) NOT NULL,
-			date_taken TIMESTAMP WITH TIME ZONE,
-			description TEXT,
-			location VARCHAR(500),
-			custom_fields JSONB,
-			thumbnail_photo_id INTEGER,
-			photographer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_albums_photographer_id ON albums(photographer_id);
-		CREATE INDEX IF NOT EXISTS idx_albums_date_taken ON albums(date_taken);
-
-		CREATE TABLE IF NOT EXISTS album_permissions (
-			id SERIAL PRIMARY KEY,
-			album_id INTEGER NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
-			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			can_view BOOLEAN NOT NULL DEFAULT true,
-			can_edit BOOLEAN NOT NULL DEFAULT false,
-			created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-			UNIQUE(album_id, user_id)
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_album_permissions_album_id ON album_permissions(album_id);
-		CREATE INDEX IF NOT EXISTS idx_album_permissions_user_id ON album_permissions(user_id);
-
-		CREATE TABLE IF NOT EXISTS photographer_clients (
-			id SERIAL PRIMARY KEY,
-			photographer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			client_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-			UNIQUE(photographer_id, client_id)
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_photographer_clients_photographer_id ON photographer_clients(photographer_id);
-		CREATE INDEX IF NOT EXISTS idx_photographer_clients_client_id ON photographer_clients(client_id);
-	`
-
-	_, err := s.db.Exec(schema)
-	return err
 }
 
 func (s *DatabaseService) CreateUser(email, username, passwordHash string, role models.UserRole) (*models.User, error) {
@@ -198,46 +134,6 @@ func (s *DatabaseService) GetUsersByRole(role models.UserRole) ([]*models.User, 
 	return users, nil
 }
 
-func (s *DatabaseService) GetAlbumByID(id int64) (*models.LegacyAlbum, error) {
-	album := &models.LegacyAlbum{}
-	query := `
-		SELECT id, title, date_taken, description, location, custom_fields, 
-		       thumbnail_photo_id, photographer_id, created_at, updated_at
-		FROM albums WHERE id = $1
-	`
-	err := s.db.QueryRow(query, id).Scan(
-		&album.ID, &album.Title, &album.DateTaken, &album.Description, &album.Location,
-		&album.CustomFields, &album.ThumbnailPhotoID, &album.PhotographerID,
-		&album.CreatedAt, &album.UpdatedAt,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return album, nil
-}
-
-func (s *DatabaseService) GetAlbumPermission(albumID, userID int64) (*models.AlbumPermission, error) {
-	permission := &models.AlbumPermission{}
-	query := `
-		SELECT id, album_id, user_id, can_view, can_edit, created_at
-		FROM album_permissions WHERE album_id = $1 AND user_id = $2
-	`
-	err := s.db.QueryRow(query, albumID, userID).Scan(
-		&permission.ID, &permission.AlbumID, &permission.UserID,
-		&permission.CanView, &permission.CanEdit, &permission.CreatedAt,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return permission, nil
-}
-
 func (s *DatabaseService) CreatePhotographerClient(photographerID, clientID int64) (*models.PhotographerClient, error) {
 	pc := &models.PhotographerClient{}
 	query := `
@@ -309,4 +205,8 @@ func (s *DatabaseService) GetClientsByPhotographer(photographerID int64) ([]*mod
 
 func (s *DatabaseService) Close() error {
 	return s.db.Close()
+}
+
+func (s *DatabaseService) GetDB() *sql.DB {
+	return s.db
 }

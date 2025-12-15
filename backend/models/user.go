@@ -21,25 +21,6 @@ type User struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
-type LegacyAlbum struct {
-	ID          int64     `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	OwnerID     int64     `json:"owner_id"`
-	IsPublic    bool      `json:"is_public"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
-
-type AlbumPermission struct {
-	ID        int64     `json:"id"`
-	AlbumID   int64     `json:"album_id"`
-	UserID    int64     `json:"user_id"`
-	CanView   bool      `json:"can_view"`
-	CanEdit   bool      `json:"can_edit"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
 type PhotographerClient struct {
 	ID             int64     `json:"id"`
 	PhotographerID int64     `json:"photographer_id"`

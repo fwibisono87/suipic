@@ -46,6 +46,8 @@ func main() {
 		log.Fatalf("Failed to initialize storage service: %v", err)
 	}
 
+	albumService := services.NewAlbumService(dbService.GetDB())
+
 	app := fiber.New(fiber.Config{
 		AppName: "Suipic API",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -69,7 +71,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app, authService, storageService, dbService)
+	setupRoutes(app, authService, storageService, dbService, albumService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -90,16 +92,16 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService) {
+func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService) {
 	authHandler := handlers.NewAuthHandler(authService)
 	photoHandler := handlers.NewPhotoHandler(storageService)
+	albumHandler := handlers.NewAlbumHandler(albumService)
 	adminHandler := handlers.NewAdminHandler(authService, dbService)
 	photographerHandler := handlers.NewPhotographerHandler(authService)
 
 	api := app.Group("/api")
-	v1 := api.Group("/v1")
 
-	v1.Get("/health", handlers.HealthCheck)
+	api.Get("/health", handlers.HealthCheck)
 
 	auth := api.Group("/auth")
 	auth.Post("/register", authHandler.Register)
@@ -112,13 +114,21 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	admin.Post("/photographers", middleware.AdminOnly(authService), adminHandler.CreatePhotographer)
 	admin.Get("/photographers", middleware.AdminOnly(authService), adminHandler.ListPhotographers)
 
-	photos := v1.Group("/photos")
+	albums := api.Group("/albums")
+	albums.Post("/", middleware.AuthRequired(authService), albumHandler.CreateAlbum)
+	albums.Get("/", middleware.AuthRequired(authService), albumHandler.GetAlbums)
+	albums.Get("/:id", middleware.AuthRequired(authService), albumHandler.GetAlbum)
+	albums.Put("/:id", middleware.AuthRequired(authService), albumHandler.UpdateAlbum)
+	albums.Delete("/:id", middleware.AuthRequired(authService), albumHandler.DeleteAlbum)
+	albums.Post("/:id/users", middleware.AuthRequired(authService), albumHandler.AssignUsers)
+
+	photos := api.Group("/photos")
 	photos.Post("/", middleware.PhotographerOnly(authService), photoHandler.UploadPhoto)
 	photos.Get("/:id", photoHandler.DownloadPhoto)
 	photos.Get("/:id/presigned", photoHandler.GetPresignedURL)
 	photos.Delete("/:id", middleware.AdminOnly(authService), photoHandler.DeletePhoto)
 
-	thumbnails := v1.Group("/thumbnails")
+	thumbnails := api.Group("/thumbnails")
 	thumbnails.Get("/:id", photoHandler.DownloadThumbnail)
 	thumbnails.Get("/:id/presigned", photoHandler.GetPresignedThumbnailURL)
 

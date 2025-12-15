@@ -210,34 +210,6 @@ func (s *AuthService) GetUserByID(userID int64) (*models.User, error) {
 	return s.dbService.GetUserByID(userID)
 }
 
-func (s *AuthService) CanAccessAlbum(userID, albumID int64, requireEdit bool) (bool, error) {
-	album, err := s.dbService.GetAlbumByID(albumID)
-	if err != nil {
-		return false, err
-	}
-	if album == nil {
-		return false, fmt.Errorf("album not found")
-	}
-
-	if album.PhotographerID == int(userID) {
-		return true, nil
-	}
-
-	permission, err := s.dbService.GetAlbumPermission(albumID, userID)
-	if err != nil {
-		return false, err
-	}
-	if permission == nil {
-		return false, nil
-	}
-
-	if requireEdit {
-		return permission.CanEdit, nil
-	}
-
-	return permission.CanView, nil
-}
-
 func (s *AuthService) GetUserByUsername(username string) (*models.User, error) {
 	return s.dbService.GetUserByUsername(username)
 }
