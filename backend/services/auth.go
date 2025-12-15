@@ -172,6 +172,44 @@ func (s *AuthService) Login(email, password string) (*models.User, string, error
 	return user, token, nil
 }
 
+func (s *AuthService) LoginWithUsernameOrEmail(username, email, password string) (*models.User, string, error) {
+	var user *models.User
+	var err error
+
+	if username != "" {
+		user, err = s.dbService.GetUserByUsername(username)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+
+	if user == nil && email != "" {
+		user, err = s.dbService.GetUserByEmail(email)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+
+	if user == nil {
+		return nil, "", fmt.Errorf("invalid credentials")
+	}
+
+	if err := s.CheckPassword(user.PasswordHash, password); err != nil {
+		return nil, "", fmt.Errorf("invalid credentials")
+	}
+
+	token, err := s.GenerateToken(user)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}
+
+func (s *AuthService) GetUserByID(userID int64) (*models.User, error) {
+	return s.dbService.GetUserByID(userID)
+}
+
 func (s *AuthService) CanAccessAlbum(userID, albumID int64, requireEdit bool) (bool, error) {
 	album, err := s.dbService.GetAlbumByID(albumID)
 	if err != nil {

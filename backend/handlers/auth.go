@@ -24,8 +24,13 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
+	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type RefreshRequest struct {
+	Token string `json:"token"`
 }
 
 type AuthResponse struct {
@@ -73,11 +78,15 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if req.Email == "" || req.Password == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "email and password are required")
+	if req.Password == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "password is required")
 	}
 
-	user, token, err := h.authService.Login(req.Email, req.Password)
+	if req.Username == "" && req.Email == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "username or email is required")
+	}
+
+	user, token, err := h.authService.LoginWithUsernameOrEmail(req.Username, req.Email, req.Password)
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnauthorized, err.Error())
 	}
@@ -85,6 +94,47 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	return c.JSON(AuthResponse{
 		User:  user,
 		Token: token,
+	})
+}
+
+func (h *AuthHandler) Refresh(c *fiber.Ctx) error {
+	var req RefreshRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.Token == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "token is required")
+	}
+
+	claims, err := h.authService.ValidateToken(req.Token)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "invalid or expired token")
+	}
+
+	user, err := h.authService.GetUserByID(claims.UserID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to retrieve user")
+	}
+
+	if user == nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "user not found")
+	}
+
+	newToken, err := h.authService.GenerateToken(user)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to generate token")
+	}
+
+	return c.JSON(AuthResponse{
+		User:  user,
+		Token: newToken,
+	})
+}
+
+func (h *AuthHandler) Logout(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"message": "logged out successfully",
 	})
 }
 

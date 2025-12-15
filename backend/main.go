@@ -101,9 +101,11 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 
 	v1.Get("/health", handlers.HealthCheck)
 
-	auth := v1.Group("/auth")
+	auth := api.Group("/auth")
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
+	auth.Post("/refresh", authHandler.Refresh)
+	auth.Post("/logout", middleware.AuthRequired(authService), authHandler.Logout)
 	auth.Get("/me", middleware.AuthRequired(authService), authHandler.Me)
 
 	admin := api.Group("/admin")
