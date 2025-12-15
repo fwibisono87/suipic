@@ -16,6 +16,7 @@ type Config struct {
 	MinIO         MinIOConfig
 	JWT           JWTConfig
 	CORS          CORSConfig
+	Admin         AdminConfig
 }
 
 type ServerConfig struct {
@@ -53,6 +54,12 @@ type JWTConfig struct {
 
 type CORSConfig struct {
 	Origins []string
+}
+
+type AdminConfig struct {
+	Email    string
+	Password string
+	Username string
 }
 
 func Load() (*Config, error) {
@@ -93,6 +100,11 @@ func Load() (*Config, error) {
 		},
 		CORS: CORSConfig{
 			Origins: strings.Split(getEnv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3001"), ","),
+		},
+		Admin: AdminConfig{
+			Email:    getEnv("ADMIN_EMAIL", ""),
+			Password: getEnv("ADMIN_PASSWORD", ""),
+			Username: getEnv("ADMIN_USERNAME", ""),
 		},
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/suipic/backend/config"
 	"github.com/suipic/backend/handlers"
+	"github.com/suipic/backend/middleware"
 	"github.com/suipic/backend/services"
 )
 
@@ -20,6 +21,24 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	dbService, err := services.NewDatabaseService(&cfg.Database)
+	if err != nil {
+		log.Fatalf("Failed to initialize database service: %v", err)
+	}
+	defer dbService.Close()
+
+	authService, err := services.NewAuthService(
+		dbService,
+		cfg.JWT.Secret,
+		cfg.JWT.Expiry,
+		cfg.Admin.Email,
+		cfg.Admin.Password,
+		cfg.Admin.Username,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize auth service: %v", err)
 	}
 
 	storageService, err := services.NewStorageService(&cfg.MinIO)
@@ -50,7 +69,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app, storageService)
+	setupRoutes(app, authService, storageService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -71,7 +90,8 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, storageService *services.StorageService) {
+func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService) {
+	authHandler := handlers.NewAuthHandler(authService)
 	photoHandler := handlers.NewPhotoHandler(storageService)
 
 	api := app.Group("/api")
@@ -79,11 +99,16 @@ func setupRoutes(app *fiber.App, storageService *services.StorageService) {
 
 	v1.Get("/health", handlers.HealthCheck)
 
+	auth := v1.Group("/auth")
+	auth.Post("/register", authHandler.Register)
+	auth.Post("/login", authHandler.Login)
+	auth.Get("/me", middleware.AuthRequired(authService), authHandler.Me)
+
 	photos := v1.Group("/photos")
-	photos.Post("/", photoHandler.UploadPhoto)
+	photos.Post("/", middleware.PhotographerOnly(authService), photoHandler.UploadPhoto)
 	photos.Get("/:id", photoHandler.DownloadPhoto)
 	photos.Get("/:id/presigned", photoHandler.GetPresignedURL)
-	photos.Delete("/:id", photoHandler.DeletePhoto)
+	photos.Delete("/:id", middleware.AdminOnly(authService), photoHandler.DeletePhoto)
 
 	thumbnails := v1.Group("/thumbnails")
 	thumbnails.Get("/:id", photoHandler.DownloadThumbnail)
