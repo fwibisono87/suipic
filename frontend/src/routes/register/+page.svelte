@@ -87,6 +87,7 @@
 					<input
 						type="email"
 						id="email"
+						name="email"
 						bind:value={email}
 						placeholder="your@email.com"
 						class="input input-bordered w-full"
@@ -102,6 +103,7 @@
 					<input
 						type="text"
 						id="username"
+						name="username"
 						bind:value={username}
 						placeholder="username"
 						class="input input-bordered w-full"
@@ -120,6 +122,7 @@
 					<input
 						type="password"
 						id="password"
+						name="password"
 						bind:value={password}
 						placeholder="••••••••"
 						class="input input-bordered w-full"
@@ -138,6 +141,7 @@
 					<input
 						type="password"
 						id="confirmPassword"
+						name="confirmPassword"
 						bind:value={confirmPassword}
 						placeholder="••••••••"
 						class="input input-bordered w-full"
@@ -152,6 +156,7 @@
 					</label>
 					<select
 						id="role"
+						name="role"
 						bind:value={role}
 						class="select select-bordered w-full"
 						disabled={isLoading}

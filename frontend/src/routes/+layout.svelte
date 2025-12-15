@@ -3,7 +3,10 @@
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import { authStore, themeStore } from '$lib/stores';
 	import { Navbar, Footer } from '$lib/components';
+	import type { PageData } from './$types';
 	import '../app.css';
+
+	export let data: PageData;
 
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -17,6 +20,13 @@
 	onMount(() => {
 		authStore.loadFromStorage();
 		themeStore.loadFromStorage();
+
+		if (data.user && data.isAuthenticated) {
+			const token = localStorage.getItem('suipic_token');
+			if (token) {
+				authStore.setAuth(data.user, token);
+			}
+		}
 	});
 </script>
 

@@ -92,6 +92,7 @@
 						<input
 							type="email"
 							id="email"
+							name="email"
 							bind:value={email}
 							placeholder="your@email.com"
 							class="input input-bordered w-full"
@@ -107,6 +108,7 @@
 						<input
 							type="text"
 							id="username"
+							name="username"
 							bind:value={username}
 							placeholder="username"
 							class="input input-bordered w-full"
@@ -123,6 +125,7 @@
 					<input
 						type="password"
 						id="password"
+						name="password"
 						bind:value={password}
 						placeholder="••••••••"
 						class="input input-bordered w-full"
