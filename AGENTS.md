@@ -9,6 +9,9 @@ cd backend
 go mod download
 cp .env.example .env
 # Edit .env with your configuration
+
+# Run database migrations
+go run cmd/migrate/main.go -action=up
 ```
 
 ### Build
@@ -49,9 +52,17 @@ go run main.go
 
 ## Architecture
 - RESTful API with Fiber framework
-- Modular structure with separate packages for config, handlers
+- Modular structure with separate packages for config, handlers, db, models
 - Environment-based configuration using .env files
+- PostgreSQL database with migration support
 - Graceful shutdown support
+
+## Database
+- **Migrations**: Located in `backend/db/migrations/`
+- **Models**: Go structs in `backend/models/`
+- **Schema**: Users, Albums, Photos, AlbumUsers (junction), Comments
+- **Run migrations**: `go run cmd/migrate/main.go -action=up`
+- **Rollback**: `go run cmd/migrate/main.go -action=down`
 
 ## Code Style
 - Follow standard Go conventions
