@@ -52,9 +52,10 @@ go run main.go
 
 ## Architecture
 - RESTful API with Fiber framework
-- Modular structure with separate packages for config, handlers, db, models
+- Modular structure with separate packages for config, handlers, db, models, services
 - Environment-based configuration using .env files
 - PostgreSQL database with migration support
+- ElasticSearch integration for photo search
 - Graceful shutdown support
 
 ## Database
@@ -69,3 +70,10 @@ go run main.go
 - Use gofmt for formatting
 - Organize code into logical packages
 - No comments unless necessary for complex logic
+
+## ElasticSearch Integration
+- **Documentation**: See `backend/ELASTICSEARCH.md` for detailed documentation
+- **Search Endpoint**: `GET /api/search` with query parameters for filtering
+- **Bulk Indexing**: `POST /api/albums/:albumId/index` to index all photos in an album
+- **Automatic Indexing**: Photos are indexed on create, update, and when comments are added
+- **Docker Setup**: Use `backend/docker-compose.elasticsearch.yml` for local development

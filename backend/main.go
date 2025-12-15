@@ -46,9 +46,15 @@ func main() {
 		log.Fatalf("Failed to initialize storage service: %v", err)
 	}
 
+	esService, err := services.NewElasticsearchService(&cfg.Elasticsearch)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize elasticsearch service: %v", err)
+		esService = nil
+	}
+
 	albumService := services.NewAlbumService(dbService.GetDB())
-	photoService := services.NewPhotoService(dbService.GetPhotoRepo(), storageService)
 	commentService := services.NewCommentService(dbService.GetCommentRepo())
+	photoService := services.NewPhotoService(dbService.GetPhotoRepo(), storageService, esService, albumService, dbService.GetCommentRepo())
 
 	app := fiber.New(fiber.Config{
 		AppName: "Suipic API",
@@ -73,7 +79,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app, authService, storageService, dbService, albumService, photoService, commentService)
+	setupRoutes(app, authService, storageService, dbService, albumService, photoService, commentService, esService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -94,12 +100,13 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService, commentService *services.CommentService) {
+func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService, commentService *services.CommentService, esService *services.ElasticsearchService) {
 	authHandler := handlers.NewAuthHandler(authService)
-	photoHandler := handlers.NewPhotoHandler(storageService, photoService, albumService, commentService)
+	photoHandler := handlers.NewPhotoHandler(storageService, photoService, albumService, commentService, esService)
 	albumHandler := handlers.NewAlbumHandler(albumService)
 	adminHandler := handlers.NewAdminHandler(authService, dbService)
 	photographerHandler := handlers.NewPhotographerHandler(authService)
+	searchHandler := handlers.NewSearchHandler(esService, photoService, albumService)
 
 	api := app.Group("/api")
 
@@ -145,6 +152,9 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	photographer := api.Group("/photographer")
 	photographer.Post("/clients", middleware.PhotographerOnly(authService), photographerHandler.CreateOrLinkClient)
 	photographer.Get("/clients", middleware.PhotographerOnly(authService), photographerHandler.ListClients)
+
+	api.Get("/search", middleware.AuthRequired(authService), searchHandler.Search)
+	api.Post("/albums/:albumId/index", middleware.AuthRequired(authService), searchHandler.BulkIndexAlbum)
 }
 
 func joinStrings(strs []string, sep string) string {

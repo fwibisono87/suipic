@@ -15,12 +15,18 @@ import (
 type PhotoService struct {
 	photoRepo      repository.PhotoRepository
 	storageService *StorageService
+	esService      *ElasticsearchService
+	albumService   *AlbumService
+	commentRepo    repository.CommentRepository
 }
 
-func NewPhotoService(photoRepo repository.PhotoRepository, storageService *StorageService) *PhotoService {
+func NewPhotoService(photoRepo repository.PhotoRepository, storageService *StorageService, esService *ElasticsearchService, albumService *AlbumService, commentRepo repository.CommentRepository) *PhotoService {
 	return &PhotoService{
 		photoRepo:      photoRepo,
 		storageService: storageService,
+		esService:      esService,
+		albumService:   albumService,
+		commentRepo:    commentRepo,
 	}
 }
 
@@ -54,6 +60,14 @@ func (s *PhotoService) CreatePhoto(ctx context.Context, albumID int, fileName st
 		return nil, fmt.Errorf("failed to create photo record: %w", err)
 	}
 
+	if s.esService != nil {
+		album, _ := s.albumService.GetAlbumByID(ctx, albumID)
+		comments, _ := s.commentRepo.GetByPhoto(ctx, photo.ID)
+		if err := s.esService.IndexPhoto(ctx, photo, album, comments); err != nil {
+			fmt.Printf("Warning: failed to index photo in elasticsearch: %v\n", err)
+		}
+	}
+
 	return photo, nil
 }
 
@@ -66,7 +80,19 @@ func (s *PhotoService) GetPhotosByAlbum(ctx context.Context, albumID int) ([]*mo
 }
 
 func (s *PhotoService) UpdatePhoto(ctx context.Context, photo *models.Photo) error {
-	return s.photoRepo.Update(ctx, photo)
+	if err := s.photoRepo.Update(ctx, photo); err != nil {
+		return err
+	}
+
+	if s.esService != nil {
+		album, _ := s.albumService.GetAlbumByID(ctx, photo.AlbumID)
+		comments, _ := s.commentRepo.GetByPhoto(ctx, photo.ID)
+		if err := s.esService.IndexPhoto(ctx, photo, album, comments); err != nil {
+			fmt.Printf("Warning: failed to update photo in elasticsearch: %v\n", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *PhotoService) DeletePhoto(ctx context.Context, id int) error {
@@ -84,6 +110,12 @@ func (s *PhotoService) DeletePhoto(ctx context.Context, id int) error {
 
 	if err := s.photoRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete photo record: %w", err)
+	}
+
+	if s.esService != nil {
+		if err := s.esService.DeletePhoto(ctx, id); err != nil {
+			fmt.Printf("Warning: failed to delete photo from elasticsearch: %v\n", err)
+		}
 	}
 
 	return nil
@@ -140,6 +172,42 @@ func (s *PhotoService) extractEXIF(reader io.Reader) models.ExifData {
 	}
 
 	return exifData
+}
+
+func (s *PhotoService) BulkIndexPhotosByAlbum(ctx context.Context, albumID int) error {
+	if s.esService == nil {
+		return fmt.Errorf("elasticsearch service not available")
+	}
+
+	photos, err := s.photoRepo.GetByAlbum(ctx, albumID)
+	if err != nil {
+		return fmt.Errorf("failed to get photos: %w", err)
+	}
+
+	if len(photos) == 0 {
+		return nil
+	}
+
+	album, err := s.albumService.GetAlbumByID(ctx, albumID)
+	if err != nil {
+		return fmt.Errorf("failed to get album: %w", err)
+	}
+
+	albums := map[int]*models.Album{
+		albumID: album,
+	}
+
+	commentsMap := make(map[int][]*models.Comment)
+	for _, photo := range photos {
+		comments, _ := s.commentRepo.GetByPhoto(ctx, photo.ID)
+		commentsMap[photo.ID] = comments
+	}
+
+	if err := s.esService.BulkIndexPhotos(ctx, photos, albums, commentsMap); err != nil {
+		return fmt.Errorf("failed to bulk index photos: %w", err)
+	}
+
+	return nil
 }
 
 func extractDateTime(exifData models.ExifData) *time.Time {

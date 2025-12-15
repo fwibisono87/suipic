@@ -15,14 +15,16 @@ type PhotoHandler struct {
 	photoService   *services.PhotoService
 	albumService   *services.AlbumService
 	commentService *services.CommentService
+	esService      *services.ElasticsearchService
 }
 
-func NewPhotoHandler(storageService *services.StorageService, photoService *services.PhotoService, albumService *services.AlbumService, commentService *services.CommentService) *PhotoHandler {
+func NewPhotoHandler(storageService *services.StorageService, photoService *services.PhotoService, albumService *services.AlbumService, commentService *services.CommentService, esService *services.ElasticsearchService) *PhotoHandler {
 	return &PhotoHandler{
 		storageService: storageService,
 		photoService:   photoService,
 		albumService:   albumService,
 		commentService: commentService,
+		esService:      esService,
 	}
 }
 
@@ -574,6 +576,14 @@ func (h *PhotoHandler) CreateComment(c *fiber.Ctx) error {
 
 	if err := h.commentService.CreateComment(c.Context(), comment); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to create comment: "+err.Error())
+	}
+
+	if h.esService != nil {
+		album, _ := h.albumService.GetAlbumByID(c.Context(), photo.AlbumID)
+		comments, _ := h.commentService.GetCommentsByPhoto(c.Context(), photoID)
+		if err := h.esService.IndexPhoto(c.Context(), photo, album, comments); err != nil {
+			println("Warning: failed to update photo index after comment:", err.Error())
+		}
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(comment)
