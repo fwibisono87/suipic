@@ -152,6 +152,7 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	photographer := api.Group("/photographer")
 	photographer.Post("/clients", middleware.PhotographerOnly(authService), photographerHandler.CreateOrLinkClient)
 	photographer.Get("/clients", middleware.PhotographerOnly(authService), photographerHandler.ListClients)
+	photographer.Get("/clients/search", middleware.PhotographerOnly(authService), photographerHandler.SearchClients)
 
 	api.Get("/search", middleware.AuthRequired(authService), searchHandler.Search)
 	api.Post("/albums/:albumId/index", middleware.AuthRequired(authService), searchHandler.BulkIndexAlbum)

@@ -30,14 +30,18 @@ func NewDatabaseService(cfg *config.DatabaseConfig) (*DatabaseService, error) {
 }
 
 func (s *DatabaseService) CreateUser(email, username, passwordHash string, role models.UserRole) (*models.User, error) {
+	return s.CreateUserWithFriendlyName(email, username, passwordHash, "", role)
+}
+
+func (s *DatabaseService) CreateUserWithFriendlyName(email, username, passwordHash, friendlyName string, role models.UserRole) (*models.User, error) {
 	user := &models.User{}
 	query := `
-		INSERT INTO users (email, username, password_hash, role)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, email, username, password_hash, role, created_at, updated_at
+		INSERT INTO users (email, username, password_hash, friendly_name, role)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, email, username, password_hash, friendly_name, role, created_at, updated_at
 	`
-	err := s.db.QueryRow(query, email, username, passwordHash, role).Scan(
-		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+	err := s.db.QueryRow(query, email, username, passwordHash, friendlyName, role).Scan(
+		&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.FriendlyName,
 		&user.Role, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -49,11 +53,11 @@ func (s *DatabaseService) CreateUser(email, username, passwordHash string, role 
 func (s *DatabaseService) GetUserByEmail(email string) (*models.User, error) {
 	user := &models.User{}
 	query := `
-		SELECT id, email, username, password_hash, role, created_at, updated_at
+		SELECT id, email, username, password_hash, friendly_name, role, created_at, updated_at
 		FROM users WHERE email = $1
 	`
 	err := s.db.QueryRow(query, email).Scan(
-		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+		&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.FriendlyName,
 		&user.Role, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -68,11 +72,11 @@ func (s *DatabaseService) GetUserByEmail(email string) (*models.User, error) {
 func (s *DatabaseService) GetUserByID(id int64) (*models.User, error) {
 	user := &models.User{}
 	query := `
-		SELECT id, email, username, password_hash, role, created_at, updated_at
+		SELECT id, email, username, password_hash, friendly_name, role, created_at, updated_at
 		FROM users WHERE id = $1
 	`
 	err := s.db.QueryRow(query, id).Scan(
-		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+		&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.FriendlyName,
 		&user.Role, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -87,11 +91,11 @@ func (s *DatabaseService) GetUserByID(id int64) (*models.User, error) {
 func (s *DatabaseService) GetUserByUsername(username string) (*models.User, error) {
 	user := &models.User{}
 	query := `
-		SELECT id, email, username, password_hash, role, created_at, updated_at
+		SELECT id, email, username, password_hash, friendly_name, role, created_at, updated_at
 		FROM users WHERE username = $1
 	`
 	err := s.db.QueryRow(query, username).Scan(
-		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+		&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.FriendlyName,
 		&user.Role, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -105,7 +109,7 @@ func (s *DatabaseService) GetUserByUsername(username string) (*models.User, erro
 
 func (s *DatabaseService) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
 	query := `
-		SELECT id, email, username, password_hash, role, created_at, updated_at
+		SELECT id, email, username, password_hash, friendly_name, role, created_at, updated_at
 		FROM users WHERE role = $1
 		ORDER BY created_at DESC
 	`
@@ -119,7 +123,7 @@ func (s *DatabaseService) GetUsersByRole(role models.UserRole) ([]*models.User, 
 	for rows.Next() {
 		user := &models.User{}
 		err := rows.Scan(
-			&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+			&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.FriendlyName,
 			&user.Role, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
@@ -172,7 +176,7 @@ func (s *DatabaseService) GetPhotographerClient(photographerID, clientID int64) 
 
 func (s *DatabaseService) GetClientsByPhotographer(photographerID int64) ([]*models.User, error) {
 	query := `
-		SELECT u.id, u.email, u.username, u.password_hash, u.role, u.created_at, u.updated_at
+		SELECT u.id, u.email, u.username, u.password_hash, u.friendly_name, u.role, u.created_at, u.updated_at
 		FROM users u
 		INNER JOIN photographer_clients pc ON u.id = pc.client_id
 		WHERE pc.photographer_id = $1
@@ -189,7 +193,7 @@ func (s *DatabaseService) GetClientsByPhotographer(photographerID int64) ([]*mod
 		user := &models.User{}
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.Username, &user.PasswordHash,
-			&user.Role, &user.CreatedAt, &user.UpdatedAt,
+			&user.FriendlyName, &user.Role, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -202,6 +206,79 @@ func (s *DatabaseService) GetClientsByPhotographer(photographerID int64) ([]*mod
 	}
 
 	return clients, nil
+}
+
+func (s *DatabaseService) SearchClientsByUsername(username string) ([]*models.User, error) {
+	query := `
+		SELECT id, email, username, password_hash, friendly_name, role, created_at, updated_at
+		FROM users
+		WHERE role = 'client' AND username ILIKE $1
+		ORDER BY username
+		LIMIT 20
+	`
+	rows, err := s.db.Query(query, "%"+username+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*models.User
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(
+			&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+			&user.FriendlyName, &user.Role, &user.CreatedAt, &user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func (s *DatabaseService) GetClientPhotographerCounts(clients []*models.User) (map[int64]int, error) {
+	if len(clients) == 0 {
+		return map[int64]int{}, nil
+	}
+
+	clientIDs := make([]int64, len(clients))
+	for i, client := range clients {
+		clientIDs[i] = client.ID
+	}
+
+	query := `
+		SELECT client_id, COUNT(photographer_id) as count
+		FROM photographer_clients
+		WHERE client_id = ANY($1)
+		GROUP BY client_id
+	`
+	rows, err := s.db.Query(query, clientIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[int64]int)
+	for rows.Next() {
+		var clientID int64
+		var count int
+		if err := rows.Scan(&clientID, &count); err != nil {
+			return nil, err
+		}
+		counts[clientID] = count
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return counts, nil
 }
 
 func (s *DatabaseService) Close() error {

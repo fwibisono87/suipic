@@ -17,17 +17,20 @@ func NewPhotographerHandler(authService *services.AuthService) *PhotographerHand
 }
 
 type CreateClientRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email,omitempty"`
-	Password string `json:"password,omitempty"`
+	Username     string `json:"username"`
+	Email        string `json:"email,omitempty"`
+	Password     string `json:"password,omitempty"`
+	FriendlyName string `json:"friendlyName,omitempty"`
 }
 
 type ClientResponse struct {
-	ID        int64  `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	CreatedAt string `json:"createdAt"`
+	ID           int64  `json:"id"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	FriendlyName string `json:"friendlyName"`
+	Role         string `json:"role"`
+	CreatedAt    string `json:"createdAt"`
+	IsShared     bool   `json:"isShared"`
 }
 
 func (h *PhotographerHandler) CreateOrLinkClient(c *fiber.Ctx) error {
@@ -61,7 +64,7 @@ func (h *PhotographerHandler) CreateOrLinkClient(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "email and password are required for new client")
 		}
 
-		client, err = h.authService.Register(req.Email, req.Username, req.Password, models.RoleClient)
+		client, err = h.authService.RegisterWithFriendlyName(req.Email, req.Username, req.Password, req.FriendlyName, models.RoleClient)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
@@ -82,11 +85,13 @@ func (h *PhotographerHandler) CreateOrLinkClient(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(ClientResponse{
-		ID:        client.ID,
-		Username:  client.Username,
-		Email:     client.Email,
-		Role:      string(client.Role),
-		CreatedAt: client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:           client.ID,
+		Username:     client.Username,
+		Email:        client.Email,
+		FriendlyName: client.FriendlyName,
+		Role:         string(client.Role),
+		CreatedAt:    client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		IsShared:     false,
 	})
 }
 
@@ -101,14 +106,53 @@ func (h *PhotographerHandler) ListClients(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to get clients")
 	}
 
+	clientCounts, err := h.authService.GetClientPhotographerCounts(clients)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get client counts")
+	}
+
+	response := make([]ClientResponse, 0, len(clients))
+	for _, client := range clients {
+		isShared := clientCounts[client.ID] > 1
+		response = append(response, ClientResponse{
+			ID:           client.ID,
+			Username:     client.Username,
+			Email:        client.Email,
+			FriendlyName: client.FriendlyName,
+			Role:         string(client.Role),
+			CreatedAt:    client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			IsShared:     isShared,
+		})
+	}
+
+	return c.JSON(response)
+}
+
+func (h *PhotographerHandler) SearchClients(c *fiber.Ctx) error {
+	_, ok := c.Locals("user_id").(int64)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	query := c.Query("q")
+	if query == "" {
+		return c.JSON([]ClientResponse{})
+	}
+
+	clients, err := h.authService.SearchClientsByUsername(query)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to search clients")
+	}
+
 	response := make([]ClientResponse, 0, len(clients))
 	for _, client := range clients {
 		response = append(response, ClientResponse{
-			ID:        client.ID,
-			Username:  client.Username,
-			Email:     client.Email,
-			Role:      string(client.Role),
-			CreatedAt: client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:           client.ID,
+			Username:     client.Username,
+			Email:        client.Email,
+			FriendlyName: client.FriendlyName,
+			Role:         string(client.Role),
+			CreatedAt:    client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 

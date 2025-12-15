@@ -122,6 +122,10 @@ func (s *AuthService) ValidateToken(tokenString string) (*JWTClaims, error) {
 }
 
 func (s *AuthService) Register(email, username, password string, role models.UserRole) (*models.User, error) {
+	return s.RegisterWithFriendlyName(email, username, password, "", role)
+}
+
+func (s *AuthService) RegisterWithFriendlyName(email, username, password, friendlyName string, role models.UserRole) (*models.User, error) {
 	existingUser, err := s.dbService.GetUserByEmail(email)
 	if err != nil {
 		return nil, err
@@ -143,7 +147,7 @@ func (s *AuthService) Register(email, username, password string, role models.Use
 		return nil, err
 	}
 
-	user, err := s.dbService.CreateUser(email, username, hashedPassword, role)
+	user, err := s.dbService.CreateUserWithFriendlyName(email, username, hashedPassword, friendlyName, role)
 	if err != nil {
 		return nil, err
 	}
@@ -224,4 +228,12 @@ func (s *AuthService) GetPhotographerClient(photographerID, clientID int64) (*mo
 
 func (s *AuthService) GetClientsByPhotographer(photographerID int64) ([]*models.User, error) {
 	return s.dbService.GetClientsByPhotographer(photographerID)
+}
+
+func (s *AuthService) SearchClientsByUsername(username string) ([]*models.User, error) {
+	return s.dbService.SearchClientsByUsername(username)
+}
+
+func (s *AuthService) GetClientPhotographerCounts(clients []*models.User) (map[int64]int, error) {
+	return s.dbService.GetClientPhotographerCounts(clients)
 }
