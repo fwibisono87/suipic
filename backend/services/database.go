@@ -7,6 +7,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/suipic/backend/config"
 	"github.com/suipic/backend/models"
+	"github.com/suipic/backend/repository"
 )
 
 type DatabaseService struct {
@@ -209,4 +210,8 @@ func (s *DatabaseService) Close() error {
 
 func (s *DatabaseService) GetDB() *sql.DB {
 	return s.db
+}
+
+func (s *DatabaseService) GetPhotoRepo() repository.PhotoRepository {
+	return repository.NewPostgresPhotoRepository(s.db)
 }

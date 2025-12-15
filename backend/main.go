@@ -47,6 +47,7 @@ func main() {
 	}
 
 	albumService := services.NewAlbumService(dbService.GetDB())
+	photoService := services.NewPhotoService(dbService.GetPhotoRepo(), storageService)
 
 	app := fiber.New(fiber.Config{
 		AppName: "Suipic API",
@@ -71,7 +72,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app, authService, storageService, dbService, albumService)
+	setupRoutes(app, authService, storageService, dbService, albumService, photoService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -92,9 +93,9 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService) {
+func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService) {
 	authHandler := handlers.NewAuthHandler(authService)
-	photoHandler := handlers.NewPhotoHandler(storageService)
+	photoHandler := handlers.NewPhotoHandler(storageService, photoService, albumService)
 	albumHandler := handlers.NewAlbumHandler(albumService)
 	adminHandler := handlers.NewAdminHandler(authService, dbService)
 	photographerHandler := handlers.NewPhotographerHandler(authService)
@@ -121,12 +122,16 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	albums.Put("/:id", middleware.AuthRequired(authService), albumHandler.UpdateAlbum)
 	albums.Delete("/:id", middleware.AuthRequired(authService), albumHandler.DeleteAlbum)
 	albums.Post("/:id/users", middleware.AuthRequired(authService), albumHandler.AssignUsers)
+	albums.Post("/:albumId/photos", middleware.AuthRequired(authService), photoHandler.CreatePhoto)
+	albums.Get("/:albumId/photos", middleware.AuthRequired(authService), photoHandler.GetPhotosByAlbum)
 
 	photos := api.Group("/photos")
 	photos.Post("/", middleware.PhotographerOnly(authService), photoHandler.UploadPhoto)
-	photos.Get("/:id", photoHandler.DownloadPhoto)
+	photos.Get("/:id", middleware.AuthRequired(authService), photoHandler.GetPhoto)
+	photos.Put("/:id", middleware.AuthRequired(authService), photoHandler.UpdatePhoto)
+	photos.Delete("/:id", middleware.AuthRequired(authService), photoHandler.DeletePhoto)
+	photos.Get("/:id/download", photoHandler.DownloadPhoto)
 	photos.Get("/:id/presigned", photoHandler.GetPresignedURL)
-	photos.Delete("/:id", middleware.AdminOnly(authService), photoHandler.DeletePhoto)
 
 	thumbnails := api.Group("/thumbnails")
 	thumbnails.Get("/:id", photoHandler.DownloadThumbnail)
