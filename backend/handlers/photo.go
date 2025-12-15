@@ -14,13 +14,15 @@ type PhotoHandler struct {
 	storageService *services.StorageService
 	photoService   *services.PhotoService
 	albumService   *services.AlbumService
+	commentService *services.CommentService
 }
 
-func NewPhotoHandler(storageService *services.StorageService, photoService *services.PhotoService, albumService *services.AlbumService) *PhotoHandler {
+func NewPhotoHandler(storageService *services.StorageService, photoService *services.PhotoService, albumService *services.AlbumService, commentService *services.CommentService) *PhotoHandler {
 	return &PhotoHandler{
 		storageService: storageService,
 		photoService:   photoService,
 		albumService:   albumService,
+		commentService: commentService,
 	}
 }
 
@@ -409,4 +411,209 @@ func (h *PhotoHandler) GetPresignedThumbnailURL(c *fiber.Ctx) error {
 		"url":        presignedURL,
 		"expires_in": int(expires.Seconds()),
 	})
+}
+
+type SetPhotoStateRequest struct {
+	State string `json:"state"`
+}
+
+func (h *PhotoHandler) SetPhotoState(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(int64)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	role, _ := c.Locals("user_role").(models.UserRole)
+
+	photoID, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid photo id")
+	}
+
+	photo, err := h.photoService.GetPhotoByID(c.Context(), photoID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get photo: "+err.Error())
+	}
+	if photo == nil {
+		return fiber.NewError(fiber.StatusNotFound, "photo not found")
+	}
+
+	if role != models.RoleAdmin {
+		canAccess, err := h.albumService.CanUserAccessAlbum(c.Context(), int(userID), photo.AlbumID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		if !canAccess {
+			return fiber.NewError(fiber.StatusForbidden, "access denied to this photo")
+		}
+	}
+
+	var req SetPhotoStateRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	switch req.State {
+	case "none", "pick", "reject":
+		photo.PickRejectState = models.PickRejectState(req.State)
+	default:
+		return fiber.NewError(fiber.StatusBadRequest, "invalid state, must be 'none', 'pick', or 'reject'")
+	}
+
+	if err := h.photoService.UpdatePhoto(c.Context(), photo); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to update photo: "+err.Error())
+	}
+
+	return c.JSON(photo)
+}
+
+type SetPhotoStarsRequest struct {
+	Stars int `json:"stars"`
+}
+
+func (h *PhotoHandler) SetPhotoStars(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(int64)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	role, _ := c.Locals("user_role").(models.UserRole)
+
+	photoID, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid photo id")
+	}
+
+	photo, err := h.photoService.GetPhotoByID(c.Context(), photoID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get photo: "+err.Error())
+	}
+	if photo == nil {
+		return fiber.NewError(fiber.StatusNotFound, "photo not found")
+	}
+
+	if role != models.RoleAdmin {
+		canAccess, err := h.albumService.CanUserAccessAlbum(c.Context(), int(userID), photo.AlbumID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		if !canAccess {
+			return fiber.NewError(fiber.StatusForbidden, "access denied to this photo")
+		}
+	}
+
+	var req SetPhotoStarsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.Stars < 0 || req.Stars > 5 {
+		return fiber.NewError(fiber.StatusBadRequest, "stars must be between 0 and 5")
+	}
+
+	photo.Stars = req.Stars
+
+	if err := h.photoService.UpdatePhoto(c.Context(), photo); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to update photo: "+err.Error())
+	}
+
+	return c.JSON(photo)
+}
+
+type CreateCommentRequest struct {
+	Text            string `json:"text"`
+	ParentCommentID *int   `json:"parentCommentId,omitempty"`
+}
+
+func (h *PhotoHandler) CreateComment(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(int64)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	role, _ := c.Locals("user_role").(models.UserRole)
+
+	photoID, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid photo id")
+	}
+
+	photo, err := h.photoService.GetPhotoByID(c.Context(), photoID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get photo: "+err.Error())
+	}
+	if photo == nil {
+		return fiber.NewError(fiber.StatusNotFound, "photo not found")
+	}
+
+	if role != models.RoleAdmin {
+		canAccess, err := h.albumService.CanUserAccessAlbum(c.Context(), int(userID), photo.AlbumID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		if !canAccess {
+			return fiber.NewError(fiber.StatusForbidden, "access denied to this photo")
+		}
+	}
+
+	var req CreateCommentRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.Text == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "comment text is required")
+	}
+
+	comment := &models.Comment{
+		PhotoID:         photoID,
+		UserID:          int(userID),
+		ParentCommentID: req.ParentCommentID,
+		Text:            req.Text,
+	}
+
+	if err := h.commentService.CreateComment(c.Context(), comment); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to create comment: "+err.Error())
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(comment)
+}
+
+func (h *PhotoHandler) GetComments(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(int64)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	role, _ := c.Locals("user_role").(models.UserRole)
+
+	photoID, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid photo id")
+	}
+
+	photo, err := h.photoService.GetPhotoByID(c.Context(), photoID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get photo: "+err.Error())
+	}
+	if photo == nil {
+		return fiber.NewError(fiber.StatusNotFound, "photo not found")
+	}
+
+	if role != models.RoleAdmin {
+		canAccess, err := h.albumService.CanUserAccessAlbum(c.Context(), int(userID), photo.AlbumID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		if !canAccess {
+			return fiber.NewError(fiber.StatusForbidden, "access denied to this photo")
+		}
+	}
+
+	comments, err := h.commentService.GetThreadedComments(c.Context(), photoID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get comments: "+err.Error())
+	}
+
+	return c.JSON(comments)
 }

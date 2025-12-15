@@ -48,6 +48,7 @@ func main() {
 
 	albumService := services.NewAlbumService(dbService.GetDB())
 	photoService := services.NewPhotoService(dbService.GetPhotoRepo(), storageService)
+	commentService := services.NewCommentService(dbService.GetCommentRepo())
 
 	app := fiber.New(fiber.Config{
 		AppName: "Suipic API",
@@ -72,7 +73,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app, authService, storageService, dbService, albumService, photoService)
+	setupRoutes(app, authService, storageService, dbService, albumService, photoService, commentService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -93,9 +94,9 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService) {
+func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService, commentService *services.CommentService) {
 	authHandler := handlers.NewAuthHandler(authService)
-	photoHandler := handlers.NewPhotoHandler(storageService, photoService, albumService)
+	photoHandler := handlers.NewPhotoHandler(storageService, photoService, albumService, commentService)
 	albumHandler := handlers.NewAlbumHandler(albumService)
 	adminHandler := handlers.NewAdminHandler(authService, dbService)
 	photographerHandler := handlers.NewPhotographerHandler(authService)
@@ -132,6 +133,10 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	photos.Delete("/:id", middleware.AuthRequired(authService), photoHandler.DeletePhoto)
 	photos.Get("/:id/download", photoHandler.DownloadPhoto)
 	photos.Get("/:id/presigned", photoHandler.GetPresignedURL)
+	photos.Put("/:id/state", middleware.AuthRequired(authService), photoHandler.SetPhotoState)
+	photos.Put("/:id/stars", middleware.AuthRequired(authService), photoHandler.SetPhotoStars)
+	photos.Post("/:id/comments", middleware.AuthRequired(authService), photoHandler.CreateComment)
+	photos.Get("/:id/comments", middleware.AuthRequired(authService), photoHandler.GetComments)
 
 	thumbnails := api.Group("/thumbnails")
 	thumbnails.Get("/:id", photoHandler.DownloadThumbnail)

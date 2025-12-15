@@ -215,3 +215,7 @@ func (s *DatabaseService) GetDB() *sql.DB {
 func (s *DatabaseService) GetPhotoRepo() repository.PhotoRepository {
 	return repository.NewPostgresPhotoRepository(s.db)
 }
+
+func (s *DatabaseService) GetCommentRepo() repository.CommentRepository {
+	return repository.NewPostgresCommentRepository(s.db)
+}
