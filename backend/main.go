@@ -13,12 +13,18 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/suipic/backend/config"
 	"github.com/suipic/backend/handlers"
+	"github.com/suipic/backend/services"
 )
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	storageService, err := services.NewStorageService(&cfg.MinIO)
+	if err != nil {
+		log.Fatalf("Failed to initialize storage service: %v", err)
 	}
 
 	app := fiber.New(fiber.Config{
@@ -44,7 +50,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app)
+	setupRoutes(app, storageService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -65,11 +71,23 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App) {
+func setupRoutes(app *fiber.App, storageService *services.StorageService) {
+	photoHandler := handlers.NewPhotoHandler(storageService)
+
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
 
 	v1.Get("/health", handlers.HealthCheck)
+
+	photos := v1.Group("/photos")
+	photos.Post("/", photoHandler.UploadPhoto)
+	photos.Get("/:id", photoHandler.DownloadPhoto)
+	photos.Get("/:id/presigned", photoHandler.GetPresignedURL)
+	photos.Delete("/:id", photoHandler.DeletePhoto)
+
+	thumbnails := v1.Group("/thumbnails")
+	thumbnails.Get("/:id", photoHandler.DownloadThumbnail)
+	thumbnails.Get("/:id/presigned", photoHandler.GetPresignedThumbnailURL)
 }
 
 func joinStrings(strs []string, sep string) string {
