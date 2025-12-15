@@ -75,6 +75,17 @@ func (s *DatabaseService) initSchema() error {
 
 		CREATE INDEX IF NOT EXISTS idx_album_permissions_album_id ON album_permissions(album_id);
 		CREATE INDEX IF NOT EXISTS idx_album_permissions_user_id ON album_permissions(user_id);
+
+		CREATE TABLE IF NOT EXISTS photographer_clients (
+			id SERIAL PRIMARY KEY,
+			photographer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			client_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+			UNIQUE(photographer_id, client_id)
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_photographer_clients_photographer_id ON photographer_clients(photographer_id);
+		CREATE INDEX IF NOT EXISTS idx_photographer_clients_client_id ON photographer_clients(client_id);
 	`
 
 	_, err := s.db.Exec(schema)
@@ -187,8 +198,8 @@ func (s *DatabaseService) GetUsersByRole(role models.UserRole) ([]*models.User, 
 	return users, nil
 }
 
-func (s *DatabaseService) GetAlbumByID(id int64) (*models.Album, error) {
-	album := &models.Album{}
+func (s *DatabaseService) GetAlbumByID(id int64) (*models.LegacyAlbum, error) {
+	album := &models.LegacyAlbum{}
 	query := `
 		SELECT id, title, date_taken, description, location, custom_fields, 
 		       thumbnail_photo_id, photographer_id, created_at, updated_at
@@ -225,6 +236,75 @@ func (s *DatabaseService) GetAlbumPermission(albumID, userID int64) (*models.Alb
 		return nil, err
 	}
 	return permission, nil
+}
+
+func (s *DatabaseService) CreatePhotographerClient(photographerID, clientID int64) (*models.PhotographerClient, error) {
+	pc := &models.PhotographerClient{}
+	query := `
+		INSERT INTO photographer_clients (photographer_id, client_id, created_at)
+		VALUES ($1, $2, NOW())
+		RETURNING id, photographer_id, client_id, created_at
+	`
+	err := s.db.QueryRow(query, photographerID, clientID).Scan(
+		&pc.ID, &pc.PhotographerID, &pc.ClientID, &pc.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
+}
+
+func (s *DatabaseService) GetPhotographerClient(photographerID, clientID int64) (*models.PhotographerClient, error) {
+	pc := &models.PhotographerClient{}
+	query := `
+		SELECT id, photographer_id, client_id, created_at
+		FROM photographer_clients
+		WHERE photographer_id = $1 AND client_id = $2
+	`
+	err := s.db.QueryRow(query, photographerID, clientID).Scan(
+		&pc.ID, &pc.PhotographerID, &pc.ClientID, &pc.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
+}
+
+func (s *DatabaseService) GetClientsByPhotographer(photographerID int64) ([]*models.User, error) {
+	query := `
+		SELECT u.id, u.email, u.username, u.password_hash, u.role, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN photographer_clients pc ON u.id = pc.client_id
+		WHERE pc.photographer_id = $1
+		ORDER BY u.username
+	`
+	rows, err := s.db.Query(query, photographerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var clients []*models.User
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(
+			&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+			&user.Role, &user.CreatedAt, &user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return clients, nil
 }
 
 func (s *DatabaseService) Close() error {

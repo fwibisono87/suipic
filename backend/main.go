@@ -94,6 +94,7 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	authHandler := handlers.NewAuthHandler(authService)
 	photoHandler := handlers.NewPhotoHandler(storageService)
 	adminHandler := handlers.NewAdminHandler(authService, dbService)
+	photographerHandler := handlers.NewPhotographerHandler(authService)
 
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
@@ -118,6 +119,10 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	thumbnails := v1.Group("/thumbnails")
 	thumbnails.Get("/:id", photoHandler.DownloadThumbnail)
 	thumbnails.Get("/:id/presigned", photoHandler.GetPresignedThumbnailURL)
+
+	photographer := api.Group("/photographer")
+	photographer.Post("/clients", middleware.PhotographerOnly(authService), photographerHandler.CreateOrLinkClient)
+	photographer.Get("/clients", middleware.PhotographerOnly(authService), photographerHandler.ListClients)
 }
 
 func joinStrings(strs []string, sep string) string {

@@ -55,3 +55,10 @@ type CommentRepository interface {
 	GetThreads(ctx context.Context, photoID int) ([]*models.Comment, error)
 	GetReplies(ctx context.Context, parentCommentID int) ([]*models.Comment, error)
 }
+
+type PhotographerClientRepository interface {
+	Create(ctx context.Context, photographerClient *models.PhotographerClient) error
+	GetByPhotographerAndClient(ctx context.Context, photographerID, clientID int64) (*models.PhotographerClient, error)
+	GetClientsByPhotographer(ctx context.Context, photographerID int64) ([]*models.User, error)
+	Delete(ctx context.Context, photographerID, clientID int64) error
+}

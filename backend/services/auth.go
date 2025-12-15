@@ -199,3 +199,19 @@ func (s *AuthService) CanAccessAlbum(userID, albumID int64, requireEdit bool) (b
 
 	return permission.CanView, nil
 }
+
+func (s *AuthService) GetUserByUsername(username string) (*models.User, error) {
+	return s.dbService.GetUserByUsername(username)
+}
+
+func (s *AuthService) CreatePhotographerClient(photographerID, clientID int64) (*models.PhotographerClient, error) {
+	return s.dbService.CreatePhotographerClient(photographerID, clientID)
+}
+
+func (s *AuthService) GetPhotographerClient(photographerID, clientID int64) (*models.PhotographerClient, error) {
+	return s.dbService.GetPhotographerClient(photographerID, clientID)
+}
+
+func (s *AuthService) GetClientsByPhotographer(photographerID int64) ([]*models.User, error) {
+	return s.dbService.GetClientsByPhotographer(photographerID)
+}
