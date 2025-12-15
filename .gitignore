@@ -33,6 +33,14 @@ yarn-error.log*
 .yarn/
 dist/
 build/
+package-lock.json
+yarn.lock
+
+# SvelteKit / Frontend
+.svelte-kit/
+.vercel/
+.netlify/
+*.tsbuildinfo
 
 # IDEs
 .vscode/
