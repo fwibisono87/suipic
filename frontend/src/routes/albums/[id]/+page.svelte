@@ -68,20 +68,17 @@
 		const file = target.files?.[0];
 		if (!file) return;
 
-		uploadingFile = file;
-		uploadError = '';
-		isUploading = true;
-
 		try {
 			await photosApi.create(albumId, file);
 			await photosQuery.refetch();
-			uploadingFile = null;
 			target.value = '';
 		} catch (err: unknown) {
-			uploadError = (err as { message: string }).message || 'Upload failed';
-		} finally {
-			isUploading = false;
+			console.error('Upload failed:', err);
 		}
+	};
+
+	const handlePhotoUpdate = () => {
+		photosQuery.refetch();
 	};
 
 	const handleEdit = () => {
@@ -245,7 +242,7 @@
 			{:else if $photosQuery.data && $photosQuery.data.length > 0}
 				<div>
 					<h2 class="text-2xl font-bold mb-6">Photos</h2>
-					<PhotoGallery photos={$photosQuery.data} layout={galleryLayout} />
+					<PhotoGallery photos={$photosQuery.data} layout={galleryLayout} onPhotoUpdate={handlePhotoUpdate} />
 				</div>
 			{:else}
 				<div class="text-center py-20">
@@ -270,6 +267,13 @@
 	{/if}
 {/if}
 
+<PhotoUploadModal
+	isOpen={showUploadModal}
+	albumId={albumId}
+	onClose={() => (showUploadModal = false)}
+	onUploadComplete={() => photosQuery.refetch()}
+/>
+
 <ConfirmModal
 	isOpen={showDeleteModal}
 	title="Delete Album"
@@ -278,8 +282,5 @@
 	cancelText="Cancel"
 	confirmButtonClass="btn-error"
 	onConfirm={handleDelete}
-	onCancel={() => (showDeleteModal = false)}
-/>
-andleDelete}
 	onCancel={() => (showDeleteModal = false)}
 />

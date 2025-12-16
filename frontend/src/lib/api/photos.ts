@@ -70,5 +70,23 @@ export const photosApi = {
 		}
 
 		return photos;
+	},
+
+	async update(photoId: number, updates: Partial<{ title: string | null; pickRejectState: string | null; stars: number }>): Promise<TPhoto> {
+		const response = await fetch(`${API_URL}/photos/${photoId}`, {
+			method: 'PUT',
+			headers: {
+				...getAuthHeaders(),
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(updates)
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({ message: 'Failed to update photo' }));
+			throw new PhotosApiError(error.message || 'Failed to update photo');
+		}
+
+		return response.json();
 	}
 };

@@ -7,6 +7,7 @@
 
 	export let photos: TPhoto[];
 	export let layout: 'grid' | 'masonry' = 'grid';
+	export let onPhotoUpdate: ((photo: TPhoto) => void) | null = null;
 
 	let lightboxOpen = false;
 	let currentPhotoIndex = 0;
@@ -35,6 +36,14 @@
 	function closeLightbox() {
 		lightboxOpen = false;
 		document.body.style.overflow = '';
+	}
+
+	function handlePhotoUpdate(photo: TPhoto) {
+		photos[currentPhotoIndex] = photo;
+		photos = [...photos];
+		if (onPhotoUpdate) {
+			onPhotoUpdate(photo);
+		}
 	}
 
 	function handleScroll() {
@@ -119,7 +128,7 @@
 			{/if}
 		</div>
 
-		<Lightbox {photos} bind:currentIndex={currentPhotoIndex} bind:isOpen={lightboxOpen} onClose={closeLightbox} />
+		<Lightbox {photos} bind:currentIndex={currentPhotoIndex} bind:isOpen={lightboxOpen} onClose={closeLightbox} onPhotoUpdate={handlePhotoUpdate} />
 	{/if}
 </div>
 

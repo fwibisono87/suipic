@@ -10,3 +10,7 @@ export { default as PhotoThumbnail } from './PhotoThumbnail.svelte';
 export { default as Lightbox } from './Lightbox.svelte';
 export { default as PhotoUploadModal } from './PhotoUploadModal.svelte';
 export { default as PhotoUploadButton } from './PhotoUploadButton.svelte';
+export { default as PhotoInteractionPanel } from './PhotoInteractionPanel.svelte';
+export { default as StarRating } from './StarRating.svelte';
+export { default as PickRejectButtons } from './PickRejectButtons.svelte';
+export { default as PhotoMetadata } from './PhotoMetadata.svelte';

@@ -3,12 +3,13 @@
 	import Icon from '@iconify/svelte';
 	import type { TPhoto } from '$lib/types';
 	import { config } from '$lib/config';
-	import { LoadingSpinner } from '$lib/components';
+	import { LoadingSpinner, PhotoInteractionPanel } from '$lib/components';
 
 	export let photos: TPhoto[];
 	export let currentIndex: number = 0;
 	export let isOpen: boolean = false;
 	export let onClose: () => void = () => {};
+	export let onPhotoUpdate: ((photo: TPhoto) => void) | null = null;
 
 	let isLoading = true;
 	let isError = false;
@@ -16,6 +17,7 @@
 	let touchStartX = 0;
 	let touchEndX = 0;
 	let preloadedImages = new Map<number, HTMLImageElement>();
+	let showInteractionPanel = false;
 
 	$: currentPhoto = photos[currentIndex];
 	$: photoUrl = currentPhoto ? `${config.apiUrl}/photos/${currentPhoto.id}` : '';
@@ -61,7 +63,11 @@
 
 		switch (event.key) {
 			case 'Escape':
-				onClose();
+				if (showInteractionPanel) {
+					showInteractionPanel = false;
+				} else {
+					onClose();
+				}
 				break;
 			case 'ArrowLeft':
 				goToPrevious();
@@ -69,7 +75,23 @@
 			case 'ArrowRight':
 				goToNext();
 				break;
+			case 'i':
+			case 'I':
+				showInteractionPanel = !showInteractionPanel;
+				break;
 		}
+	}
+
+	function handlePhotoUpdate(event: CustomEvent<TPhoto>) {
+		const updatedPhoto = event.detail;
+		photos[currentIndex] = updatedPhoto;
+		if (onPhotoUpdate) {
+			onPhotoUpdate(updatedPhoto);
+		}
+	}
+
+	function toggleInteractionPanel() {
+		showInteractionPanel = !showInteractionPanel;
 	}
 
 	function handleBackdropClick(event: MouseEvent) {
@@ -132,13 +154,23 @@
 		on:touchmove={handleTouchMove}
 		on:touchend={handleTouchEnd}
 	>
-		<button
-			class="btn btn-circle btn-ghost absolute top-2 sm:top-4 right-2 sm:right-4 text-white z-10 btn-sm sm:btn-md"
-			on:click={onClose}
-			aria-label="Close"
-		>
-			<Icon icon="mdi:close" class="text-xl sm:text-2xl" />
-		</button>
+		<div class="absolute top-2 sm:top-4 right-2 sm:right-4 z-10 flex gap-2">
+			<button
+				class="btn btn-circle btn-ghost text-white btn-sm sm:btn-md"
+				class:btn-active={showInteractionPanel}
+				on:click={toggleInteractionPanel}
+				aria-label="Toggle info panel"
+			>
+				<Icon icon="mdi:information" class="text-xl sm:text-2xl" />
+			</button>
+			<button
+				class="btn btn-circle btn-ghost text-white btn-sm sm:btn-md"
+				on:click={onClose}
+				aria-label="Close"
+			>
+				<Icon icon="mdi:close" class="text-xl sm:text-2xl" />
+			</button>
+		</div>
 
 		<button
 			class="btn btn-circle btn-ghost absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 text-white z-10 btn-sm sm:btn-md"
@@ -239,8 +271,29 @@
 		</div>
 
 		<div class="absolute top-12 sm:top-20 left-1/2 -translate-x-1/2 text-center text-white text-xs opacity-50 hidden sm:block">
-			<p>Use arrow keys or swipe to navigate • ESC to close</p>
+			<p>Use arrow keys or swipe to navigate • I for info • ESC to close</p>
 		</div>
+
+		{#if showInteractionPanel}
+			<div 
+				class="absolute right-0 top-0 h-full w-full sm:w-96 bg-base-100 shadow-2xl overflow-y-auto z-20 transition-transform"
+				on:click|stopPropagation
+			>
+				<div class="p-4">
+					<div class="flex items-center justify-between mb-4">
+						<h2 class="text-lg font-semibold">Photo Details</h2>
+						<button
+							class="btn btn-ghost btn-sm btn-circle"
+							on:click={toggleInteractionPanel}
+							aria-label="Close panel"
+						>
+							<Icon icon="mdi:close" class="text-xl" />
+						</button>
+					</div>
+					<PhotoInteractionPanel photo={currentPhoto} on:update={handlePhotoUpdate} />
+				</div>
+			</div>
+		{/if}
 	</div>
 {/if}
 
