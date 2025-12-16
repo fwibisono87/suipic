@@ -27,4 +27,7 @@ export const queryKeys = {
 		all: ['search'] as const,
 		query: (params: TSearchParams) => ['search', params] as const,
 	},
+	settings: {
+		all: ['settings'] as const,
+	},
 } as const;

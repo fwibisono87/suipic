@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './album';
+export * from './settings';
 
 export type TComment = {
 	id: number;
