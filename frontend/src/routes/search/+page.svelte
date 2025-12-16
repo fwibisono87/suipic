@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 	import Icon from '@iconify/svelte';
 	import { isAuthenticated } from '$lib/stores';
 	import { LoadingSpinner, Alert, PhotoGallery } from '$lib/components';
-	import { searchApi, albumsApi } from '$lib/api';
-	import type { TSearchParams, TSearchResponse } from '$lib/api/search';
+	import { useSearchQuery } from '$lib/queries/search';
+	import { useAlbumsQuery } from '$lib/queries/albums';
 	import type { TAlbum } from '$lib/types';
 	
 	let searchQuery = '';
@@ -16,15 +15,10 @@
 	let minStars = 0;
 	let maxStars = 5;
 	let selectedStates: string[] = [];
-	let currentPage = 1;
-	let pageSize = 50;
 	let showFilters = false;
-	
-	let searchResults: TSearchResponse | null = null;
-	let albums: TAlbum[] = [];
-	let isSearching = false;
-	let searchError = '';
-	let isLoadingAlbums = false;
+
+	const searchQueryHook = useSearchQuery({ enabled: false });
+	const albumsQuery = useAlbumsQuery();
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -32,78 +26,33 @@
 			return;
 		}
 		
-		loadAlbums();
+		searchQueryHook.syncFromQueryParams();
 		
-		const params = $page.url.searchParams;
-		if (params.get('q')) {
-			searchQuery = params.get('q') || '';
-			performSearch();
-		}
+		const unsubscribe = searchQueryHook.filters.subscribe(filters => {
+			searchQuery = filters.q || '';
+			selectedAlbum = filters.album;
+			dateFrom = filters.dateFrom || '';
+			dateTo = filters.dateTo || '';
+			minStars = filters.minStars ?? 0;
+			maxStars = filters.maxStars ?? 5;
+			selectedStates = filters.state ? filters.state.split(',') : [];
+		});
+
+		return () => {
+			unsubscribe();
+		};
 	});
 
-	async function loadAlbums() {
-		isLoadingAlbums = true;
-		try {
-			albums = await albumsApi.list();
-		} catch (err: unknown) {
-			console.error('Failed to load albums:', err);
-		} finally {
-			isLoadingAlbums = false;
-		}
-	}
-
-	async function performSearch() {
-		isSearching = true;
-		searchError = '';
-		
-		try {
-			const params: TSearchParams = {
-				limit: pageSize,
-				offset: (currentPage - 1) * pageSize
-			};
-
-			if (searchQuery.trim()) {
-				params.q = searchQuery.trim();
-			}
-			
-			if (selectedAlbum) {
-				params.album = selectedAlbum;
-			}
-			
-			if (dateFrom) {
-				params.dateFrom = new Date(dateFrom).toISOString();
-			}
-			
-			if (dateTo) {
-				const date = new Date(dateTo);
-				date.setHours(23, 59, 59, 999);
-				params.dateTo = date.toISOString();
-			}
-			
-			if (minStars > 0) {
-				params.minStars = minStars;
-			}
-			
-			if (maxStars < 5) {
-				params.maxStars = maxStars;
-			}
-			
-			if (selectedStates.length > 0 && selectedStates.length < 3) {
-				params.state = selectedStates.join(',');
-			}
-
-			searchResults = await searchApi.search(params);
-		} catch (err: unknown) {
-			searchError = (err as { message: string }).message || 'Search failed';
-			searchResults = null;
-		} finally {
-			isSearching = false;
-		}
-	}
-
 	function handleSearch() {
-		currentPage = 1;
-		performSearch();
+		searchQueryHook.setFilters({
+			q: searchQuery,
+			album: selectedAlbum,
+			dateFrom: dateFrom || undefined,
+			dateTo: dateTo || undefined,
+			minStars: minStars > 0 ? minStars : undefined,
+			maxStars: maxStars < 5 ? maxStars : undefined,
+			state: selectedStates.length > 0 && selectedStates.length < 3 ? selectedStates.join(',') : undefined,
+		});
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
@@ -127,28 +76,27 @@
 		minStars = 0;
 		maxStars = 5;
 		selectedStates = [];
-		currentPage = 1;
-		performSearch();
+		searchQueryHook.clearFilters();
 	}
 
 	function handlePreviousPage() {
-		if (currentPage > 1) {
-			currentPage--;
-			performSearch();
-			window.scrollTo({ top: 0, behavior: 'smooth' });
-		}
+		searchQueryHook.previousPage();
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	function handleNextPage() {
-		if (searchResults && currentPage * pageSize < searchResults.total) {
-			currentPage++;
-			performSearch();
-			window.scrollTo({ top: 0, behavior: 'smooth' });
-		}
+		searchQueryHook.nextPage();
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
-	$: totalPages = searchResults ? Math.ceil(searchResults.total / pageSize) : 0;
-	$: hasActiveFilters = selectedAlbum || dateFrom || dateTo || minStars > 0 || maxStars < 5 || selectedStates.length > 0;
+	$: albums = $albumsQuery.data || [];
+	$: isLoadingAlbums = $albumsQuery.isLoading;
+	$: searchResults = $searchQueryHook.query.data || null;
+	$: isSearching = $searchQueryHook.query.isFetching;
+	$: searchError = $searchQueryHook.query.error ? ($searchQueryHook.query.error as Error).message : '';
+	$: totalPages = $searchQueryHook.totalPages;
+	$: currentPage = $searchQueryHook.pagination.page;
+	$: hasActiveFilters = $searchQueryHook.hasActiveFilters;
 </script>
 
 <svelte:head>
@@ -336,7 +284,7 @@
 		</div>
 
 		{#if searchError}
-			<Alert type="error" message={searchError} dismissible onDismiss={() => (searchError = '')} />
+			<Alert type="error" message={searchError} dismissible onDismiss={() => searchQueryHook.query.refetch()} />
 		{/if}
 
 		{#if isSearching && !searchResults}
@@ -384,7 +332,7 @@
 				</div>
 
 				{#if searchResults.photos.length > 0}
-					<PhotoGallery photos={searchResults.photos} layout="grid" onPhotoUpdate={() => performSearch()} photographerId={null} />
+					<PhotoGallery photos={searchResults.photos} layout="grid" onPhotoUpdate={() => searchQueryHook.query.refetch()} photographerId={null} />
 					
 					{#if totalPages > 1}
 						<div class="flex justify-center pt-4">
