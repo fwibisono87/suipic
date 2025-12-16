@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.*
+
+# Build artifacts
+bin/
+*.exe
+*.test
+
+# Documentation
+*.md
+!README.md
+
+# Development files
+.vscode/
+.idea/
+
+# Test files
+*_test.go
+
+# Logs
+*.log

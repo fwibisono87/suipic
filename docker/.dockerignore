@@ -1,0 +1,4 @@
+# SSL certificates - should not be included in images
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt

@@ -76,3 +76,13 @@ coverage.html
 .env
 .env.local
 .env.*.local
+
+# Docker
+docker/nginx/ssl/*.pem
+docker/nginx/ssl/*.key
+docker/nginx/ssl/*.crt
+
+# Backups
+backup.sql
+*.backup
+*.tar.gz

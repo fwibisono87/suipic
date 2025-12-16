@@ -1,0 +1,43 @@
+version: '3.8'
+
+# Development overrides for docker-compose
+# This file is automatically merged with docker-compose.yml
+# Use for local development with hot-reload and debug settings
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./backend:/app
+    environment:
+      ENV: development
+      CORS_ORIGINS: http://localhost,http://localhost:3001,http://localhost:5173
+    command: go run main.go
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: pnpm run dev --host 0.0.0.0 --port 3001
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  elasticsearch:
+    environment:
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"

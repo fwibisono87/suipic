@@ -1,0 +1,53 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: false
+        tags: suipic-backend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: false
+        tags: suipic-frontend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Start infrastructure services
+      run: |
+        docker-compose -f docker-compose.infra.yml up -d
+        sleep 30
+
+    - name: Check infrastructure health
+      run: |
+        docker-compose -f docker-compose.infra.yml ps
+        curl -f http://localhost:9200/_cluster/health || exit 1
+        docker-compose -f docker-compose.infra.yml exec -T postgres pg_isready -U suipic || exit 1
+
+    - name: Cleanup
+      if: always()
+      run: docker-compose -f docker-compose.infra.yml down -v
