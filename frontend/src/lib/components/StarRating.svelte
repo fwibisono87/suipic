@@ -60,11 +60,11 @@
 			on:mouseleave={handleMouseLeave}
 			aria-label={`Rate ${star} stars`}
 		>
-			<Icon 
-				icon={star <= displayRating ? "mdi:star" : "mdi:star-outline"} 
-				class={sizeClass}
-				class:text-warning={star <= displayRating}
-				class:opacity-30={star > displayRating}
+			<Icon
+				icon={star <= displayRating ? 'mdi:star' : 'mdi:star-outline'}
+				class={`${sizeClass} ${star <= displayRating ? 'text-warning' : ''} ${
+					star > displayRating ? 'opacity-30' : ''
+				}`.trim()}
 			/>
 		</button>
 	{/each}

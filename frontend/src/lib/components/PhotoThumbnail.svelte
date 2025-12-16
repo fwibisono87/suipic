@@ -66,6 +66,13 @@
 		isError = true;
 	}
 
+	function handleContextMenu(event: MouseEvent) {
+		// Prevent saving/downloading when image protection is enabled
+		if ($imageProtectionEnabled) {
+			event.preventDefault();
+		}
+	}
+
 	function handleClick() {
 		onClick();
 	}

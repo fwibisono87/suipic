@@ -144,11 +144,11 @@
 					disabled={isUpdating}
 					on:click={() => updateStars(rating === stars ? 0 : rating)}
 				>
-					<Icon 
-						icon={rating <= stars ? "mdi:star" : "mdi:star-outline"} 
-						class="text-2xl"
-						class:text-warning={rating <= stars}
-						class:opacity-30={rating > stars}
+					<Icon
+						icon={rating <= stars ? 'mdi:star' : 'mdi:star-outline'}
+						class={`text-2xl ${rating <= stars ? 'text-warning' : ''} ${
+							rating > stars ? 'opacity-30' : ''
+						}`.trim()}
 					/>
 				</button>
 			{/each}
