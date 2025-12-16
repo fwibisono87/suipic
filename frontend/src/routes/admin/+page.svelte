@@ -6,6 +6,7 @@
 	import { EUserRole } from '$lib/types';
 	import { Card, Alert, LoadingSpinner } from '$lib/components';
 	import { useListPhotographers, useCreatePhotographer } from '$lib/queries/admin';
+	import { useSettingsQuery, useUpdateSettingMutation } from '$lib/queries/settings';
 	import type { TCreatePhotographerRequest, TCreatePhotographerResponse } from '$lib/api';
 	import { validateEmail, validateUsername } from '$lib/utils';
 
@@ -19,6 +20,8 @@
 
 	const photographersQuery = useListPhotographers();
 	const createPhotographerMutation = useCreatePhotographer();
+	const settingsQuery = useSettingsQuery();
+	const updateSettingMutation = useUpdateSettingMutation();
 
 	$: photographers = $photographersQuery.data?.photographers || [];
 	$: paginatedPhotographers = photographers.slice(
@@ -28,6 +31,10 @@
 	$: totalPages = Math.ceil(photographers.length / itemsPerPage);
 	$: hasNextPage = currentPage < totalPages;
 	$: hasPrevPage = currentPage > 1;
+
+	$: settings = $settingsQuery.data || [];
+	$: imageProtectionSetting = settings.find(s => s.settingKey === 'image_protection');
+	$: isImageProtectionEnabled = imageProtectionSetting?.settingValue === 'true';
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -91,6 +98,42 @@
 			month: 'short',
 			day: 'numeric'
 		});
+	}
+
+	function handleToggleImageProtection() {
+		const newValue = !isImageProtectionEnabled;
+		
+		$updateSettingMutation.mutate(
+			{
+				settingKey: 'image_protection',
+				data: { settingValue: newValue.toString() }
+			},
+			{
+				onMutate: async () => {
+					await $settingsQuery.queryClient?.cancelQueries({ 
+						queryKey: ['settings'] 
+					});
+					
+					const previousSettings = $settingsQuery.data;
+					
+					if ($settingsQuery.data) {
+						const updatedSettings = $settingsQuery.data.map(setting => 
+							setting.settingKey === 'image_protection'
+								? { ...setting, settingValue: newValue.toString() }
+								: setting
+						);
+						$settingsQuery.queryClient?.setQueryData(['settings'], updatedSettings);
+					}
+					
+					return { previousSettings };
+				},
+				onError: (_err, _variables, context) => {
+					if (context?.previousSettings) {
+						$settingsQuery.queryClient?.setQueryData(['settings'], context.previousSettings);
+					}
+				}
+			}
+		);
 	}
 </script>
 
@@ -297,6 +340,65 @@
 					{/if}
 				</Card>
 			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-6">
+			<Card title="System Settings">
+				{#if $settingsQuery.isError}
+					<div class="mb-4">
+						<Alert type="error" message={$settingsQuery.error?.message || 'Failed to load settings'} />
+					</div>
+				{/if}
+
+				{#if $updateSettingMutation.isError}
+					<div class="mb-4">
+						<Alert 
+							type="error" 
+							message={$updateSettingMutation.error?.message || 'Failed to update setting'} 
+							dismissible 
+							onDismiss={() => $updateSettingMutation.reset()} 
+						/>
+					</div>
+				{/if}
+
+				{#if $settingsQuery.isLoading}
+					<div class="flex justify-center py-8">
+						<LoadingSpinner />
+					</div>
+				{:else}
+					<div class="space-y-4">
+						<div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+							<div class="flex-1">
+								<div class="flex items-center gap-2 mb-1">
+									<Icon icon="mdi:shield-check" class="text-xl" />
+									<h3 class="font-semibold text-lg">Image Protection</h3>
+								</div>
+								<p class="text-sm opacity-70">
+									{#if isImageProtectionEnabled}
+										Image protection is currently <span class="font-semibold text-success">enabled</span>. 
+										Images are protected from unauthorized downloads.
+									{:else}
+										Image protection is currently <span class="font-semibold text-error">disabled</span>. 
+										Images can be downloaded without restrictions.
+									{/if}
+								</p>
+							</div>
+							<div class="flex items-center gap-3">
+								{#if $updateSettingMutation.isPending}
+									<LoadingSpinner size="sm" />
+								{/if}
+								<input
+									type="checkbox"
+									class="toggle toggle-primary"
+									checked={isImageProtectionEnabled}
+									on:change={handleToggleImageProtection}
+									disabled={$updateSettingMutation.isPending}
+								/>
+							</div>
+						</div>
+					</div>
+				{/if}
+			</Card>
 		</div>
 	</div>
 {/if}
