@@ -217,7 +217,7 @@
 								on:change={handleFileSelect}
 							/>
 						</label>
-						<p class="text-xs opacity-50 mt-4">Supported formats: JPEG, PNG, WebP, GIF</p>
+						<p class="text-xs opacity-50 mt-4">Supported formats: JPEG, PNG, WebP, GIF (all images converted to WebP for optimization)</p>
 					</div>
 				{:else}
 					<div
