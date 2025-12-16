@@ -202,3 +202,12 @@ func (r *PostgresAlbumUserRepository) GetByUser(ctx context.Context, userID int)
 
 	return albumUsers, nil
 }
+
+func (r *PostgresAlbumUserRepository) DeleteByAlbum(ctx context.Context, albumID int) error {
+	query := `DELETE FROM album_users WHERE album_id = $1`
+	_, err := r.db.ExecContext(ctx, query, albumID)
+	if err != nil {
+		return fmt.Errorf("failed to delete album users: %w", err)
+	}
+	return nil
+}

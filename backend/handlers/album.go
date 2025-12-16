@@ -293,6 +293,39 @@ func (h *AlbumHandler) AssignUsers(c *fiber.Ctx) error {
 	})
 }
 
+func (h *AlbumHandler) GetAlbumUsers(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(int64)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	role, _ := c.Locals("user_role").(models.UserRole)
+
+	albumID, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid album id")
+	}
+
+	existingAlbum, err := h.albumService.GetAlbumByID(c.Context(), albumID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get album: "+err.Error())
+	}
+	if existingAlbum == nil {
+		return fiber.NewError(fiber.StatusNotFound, "album not found")
+	}
+
+	if role != models.RoleAdmin && existingAlbum.PhotographerID != int(userID) {
+		return fiber.NewError(fiber.StatusForbidden, "you can only view users for your own albums")
+	}
+
+	albumUsers, err := h.albumService.GetAlbumUsers(c.Context(), albumID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get album users: "+err.Error())
+	}
+
+	return c.JSON(albumUsers)
+}
+
 func parseDateTime(dateStr string) (time.Time, error) {
 	formats := []string{
 		time.RFC3339,

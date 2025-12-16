@@ -89,5 +89,33 @@ export const albumsApi = {
 			const error = await response.json().catch(() => ({ message: 'Failed to delete album' }));
 			throw new AlbumsApiError(error.message || 'Failed to delete album');
 		}
+	},
+
+	async assignUsers(id: number, userIds: number[]): Promise<void> {
+		const response = await fetch(`${API_URL}/albums/${id}/users`, {
+			method: 'POST',
+			headers: getAuthHeaders(),
+			body: JSON.stringify({ userIds })
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({ message: 'Failed to assign users' }));
+			throw new AlbumsApiError(error.message || 'Failed to assign users');
+		}
+	},
+
+	async getUsers(id: number): Promise<number[]> {
+		const response = await fetch(`${API_URL}/albums/${id}/users`, {
+			method: 'GET',
+			headers: getAuthHeaders()
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({ message: 'Failed to get album users' }));
+			throw new AlbumsApiError(error.message || 'Failed to get album users');
+		}
+
+		const albumUsers = await response.json();
+		return albumUsers.map((au: { userId: number }) => au.userId);
 	}
 };

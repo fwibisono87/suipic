@@ -4,6 +4,7 @@ export type TAlbum = {
 	description: string | null;
 	location: string | null;
 	dateTaken: string | null;
+	customFields: Record<string, unknown> | null;
 	thumbnailPhotoId: number | null;
 	photographerId: number;
 	createdAt: string;
@@ -15,6 +16,7 @@ export type TCreateAlbumRequest = {
 	description: string | null;
 	location: string | null;
 	dateTaken: string | null;
+	customFields?: Record<string, unknown> | null;
 };
 
 export type TUpdateAlbumRequest = {
@@ -22,5 +24,20 @@ export type TUpdateAlbumRequest = {
 	description?: string | null;
 	location?: string | null;
 	dateTaken?: string | null;
+	customFields?: Record<string, unknown> | null;
 	thumbnailPhotoId?: number | null;
+};
+
+export type TPhoto = {
+	id: number;
+	albumId: number;
+	filename: string;
+	title: string | null;
+	description: string | null;
+	dateTaken: string | null;
+	location: string | null;
+	stars: number;
+	pickRejectState: string | null;
+	createdAt: string;
+	updatedAt: string;
 };

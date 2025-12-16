@@ -40,6 +40,7 @@ type AlbumUserRepository interface {
 	GetByID(ctx context.Context, id int) (*models.AlbumUser, error)
 	Delete(ctx context.Context, id int) error
 	DeleteByAlbumAndUser(ctx context.Context, albumID, userID int) error
+	DeleteByAlbum(ctx context.Context, albumID int) error
 	List(ctx context.Context, limit, offset int) ([]*models.AlbumUser, error)
 	GetByAlbum(ctx context.Context, albumID int) ([]*models.AlbumUser, error)
 	GetByUser(ctx context.Context, userID int) ([]*models.AlbumUser, error)

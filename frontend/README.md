@@ -70,11 +70,19 @@ src/
 ## Features
 
 - **Authentication**: JWT-based auth with token storage and auto-refresh
-- **Albums Management**: Create, view, and manage photo albums
-- **Photo Upload**: Upload photos to albums
+- **Albums Management**: 
+  - Create, edit, and delete photo albums
+  - Grid and table view for album listing
+  - Custom fields for flexible metadata
+  - Client assignment for sharing albums
+  - Thumbnail selection from album photos
+  - Album detail view with photo gallery
+- **Photo Upload**: Upload photos to albums with drag-and-drop support
 - **Responsive Design**: Mobile-friendly UI with responsive navigation
 - **Dark Mode**: Theme switching between light and dark modes
 - **Type Safety**: Full TypeScript support with backend DTO matching
+
+See [ALBUM_MANAGEMENT.md](./ALBUM_MANAGEMENT.md) for detailed documentation on album management features.
 
 ## API Integration
 

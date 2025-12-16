@@ -130,6 +130,7 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	albums.Put("/:id", middleware.AuthRequired(authService), albumHandler.UpdateAlbum)
 	albums.Delete("/:id", middleware.AuthRequired(authService), albumHandler.DeleteAlbum)
 	albums.Post("/:id/users", middleware.AuthRequired(authService), albumHandler.AssignUsers)
+	albums.Get("/:id/users", middleware.AuthRequired(authService), albumHandler.GetAlbumUsers)
 	albums.Post("/:albumId/photos", middleware.AuthRequired(authService), photoHandler.CreatePhoto)
 	albums.Get("/:albumId/photos", middleware.AuthRequired(authService), photoHandler.GetPhotosByAlbum)
 

@@ -65,6 +65,10 @@ func (s *AlbumService) ListAlbums(ctx context.Context, photographerID *int, user
 }
 
 func (s *AlbumService) AssignUsersToAlbum(ctx context.Context, albumID int, userIDs []int) error {
+	if err := s.albumUserRepo.DeleteByAlbum(ctx, albumID); err != nil {
+		return fmt.Errorf("failed to clear existing users: %w", err)
+	}
+
 	for _, userID := range userIDs {
 		albumUser := &models.AlbumUser{
 			AlbumID: albumID,
