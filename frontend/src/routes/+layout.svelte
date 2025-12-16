@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
-	import { authStore, themeStore } from '$lib/stores';
+	import { authStore, themeStore, settingsStore } from '$lib/stores';
+	import { settingsApi } from '$lib/api/settings';
 	import { Navbar, Footer } from '$lib/components';
 	import type { PageData } from './$types';
 	import '../app.css';
@@ -53,7 +54,7 @@
 		mutationCache: undefined
 	});
 
-	onMount(() => {
+	onMount(async () => {
 		authStore.loadFromStorage();
 		themeStore.loadFromStorage();
 
@@ -62,6 +63,13 @@
 			if (token) {
 				authStore.setAuth(data.user, token);
 			}
+		}
+
+		try {
+			const publicSettings = await settingsApi.fetchPublicSettings();
+			settingsStore.setImageProtection(publicSettings.image_protection_enabled);
+		} catch (error) {
+			console.error('Failed to load public settings:', error);
 		}
 	});
 </script>

@@ -20,6 +20,10 @@ const getAuthHeaders = () => {
 	};
 };
 
+export type TPublicSettings = {
+	image_protection_enabled: boolean;
+};
+
 export const settingsApi = {
 	async getSettings(): Promise<TSystemSettings[]> {
 		const response = await fetch(`${API_URL}/settings`, {
@@ -45,6 +49,22 @@ export const settingsApi = {
 		if (!response.ok) {
 			const error = await response.json().catch(() => ({ message: 'Failed to update setting' }));
 			throw new SettingsApiError(error.message || 'Failed to update setting');
+		}
+
+		return response.json();
+	},
+
+	async fetchPublicSettings(): Promise<TPublicSettings> {
+		const response = await fetch(`${API_URL}/settings/public`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({ message: 'Failed to fetch public settings' }));
+			throw new SettingsApiError(error.message || 'Failed to fetch public settings');
 		}
 
 		return response.json();

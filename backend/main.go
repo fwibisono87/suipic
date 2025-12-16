@@ -102,17 +102,20 @@ func main() {
 }
 
 func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService, commentService *services.CommentService, esService *services.ElasticsearchService, systemSettingsService *services.SystemSettingsService) {
-	_ = systemSettingsService
 	authHandler := handlers.NewAuthHandler(authService)
 	photoHandler := handlers.NewPhotoHandler(storageService, photoService, albumService, commentService, esService)
 	albumHandler := handlers.NewAlbumHandler(albumService)
-	adminHandler := handlers.NewAdminHandler(authService, dbService)
+	adminHandler := handlers.NewAdminHandler(authService, dbService, systemSettingsService)
 	photographerHandler := handlers.NewPhotographerHandler(authService)
 	searchHandler := handlers.NewSearchHandler(esService, photoService, albumService)
+	settingsHandler := handlers.NewSettingsHandler(systemSettingsService)
 
 	api := app.Group("/api")
 
 	api.Get("/health", handlers.HealthCheck)
+
+	settings := api.Group("/settings")
+	settings.Get("/public", settingsHandler.GetPublicSettings)
 
 	auth := api.Group("/auth")
 	auth.Post("/register", authHandler.Register)
