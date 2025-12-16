@@ -329,7 +329,7 @@ func (h *PhotoHandler) DownloadPhoto(c *fiber.Ctx) error {
 	}
 	defer object.Close()
 
-	c.Set("Content-Type", info.ContentType)
+	c.Set("Content-Type", "image/webp")
 	c.Set("Content-Disposition", "inline; filename=\""+info.Key+"\"")
 
 	data, err := io.ReadAll(object)
@@ -358,7 +358,7 @@ func (h *PhotoHandler) DownloadThumbnail(c *fiber.Ctx) error {
 	}
 	defer object.Close()
 
-	c.Set("Content-Type", info.ContentType)
+	c.Set("Content-Type", "image/webp")
 	c.Set("Content-Disposition", "inline; filename=\""+info.Key+"\"")
 
 	data, err := io.ReadAll(object)
