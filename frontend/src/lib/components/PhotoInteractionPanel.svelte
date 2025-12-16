@@ -2,9 +2,9 @@
 	import { createEventDispatcher } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import type { TPhoto } from '$lib/types';
-	import { photosApi } from '$lib/api/photos';
 	import { formatDateTime } from '$lib/utils/format';
 	import { CommentSection } from '$lib/components';
+	import { useUpdatePhotoMutation } from '$lib/queries/photos';
 
 	export let photo: TPhoto;
 	export let photographerId: number | null = null;
@@ -13,43 +13,50 @@
 		update: TPhoto;
 	}>();
 
+	const updatePhotoMutation = useUpdatePhotoMutation();
+
 	let isEditingTitle = false;
 	let titleInput = photo.title || '';
-	let isUpdating = false;
 
 	$: pickRejectState = photo.pickRejectState || 'none';
 	$: stars = photo.stars || 0;
 
-	async function updatePickRejectState(newState: 'none' | 'pick' | 'reject') {
-		if (isUpdating) return;
-		isUpdating = true;
-		
-		try {
-			const updated = await photosApi.update(photo.id, { 
-				pickRejectState: newState === 'none' ? null : newState 
-			});
-			photo = updated;
-			dispatch('update', updated);
-		} catch (err) {
-			console.error('Failed to update pick/reject state:', err);
-		} finally {
-			isUpdating = false;
-		}
+	function updatePickRejectState(newState: 'none' | 'pick' | 'reject') {
+		$updatePhotoMutation.mutate(
+			{ 
+				photoId: photo.id, 
+				updates: { pickRejectState: newState === 'none' ? null : newState } 
+			},
+			{
+				onSuccess: (updated) => {
+					photo = updated;
+					dispatch('update', updated);
+				},
+				onError: (err) => {
+					console.error('Failed to update pick/reject state:', err);
+				}
+			}
+		);
 	}
 
-	async function updateStars(newStars: number) {
-		if (isUpdating || newStars === stars) return;
-		isUpdating = true;
+	function updateStars(newStars: number) {
+		if (newStars === stars) return;
 		
-		try {
-			const updated = await photosApi.update(photo.id, { stars: newStars });
-			photo = updated;
-			dispatch('update', updated);
-		} catch (err) {
-			console.error('Failed to update stars:', err);
-		} finally {
-			isUpdating = false;
-		}
+		$updatePhotoMutation.mutate(
+			{ 
+				photoId: photo.id, 
+				updates: { stars: newStars } 
+			},
+			{
+				onSuccess: (updated) => {
+					photo = updated;
+					dispatch('update', updated);
+				},
+				onError: (err) => {
+					console.error('Failed to update stars:', err);
+				}
+			}
+		);
 	}
 
 	function startEditingTitle() {
@@ -61,28 +68,29 @@
 		}, 0);
 	}
 
-	async function saveTitle() {
-		if (isUpdating) return;
-		
+	function saveTitle() {
 		const newTitle = titleInput.trim();
 		if (newTitle === (photo.title || '')) {
 			isEditingTitle = false;
 			return;
 		}
 
-		isUpdating = true;
-		try {
-			const updated = await photosApi.update(photo.id, { 
-				title: newTitle || null 
-			});
-			photo = updated;
-			dispatch('update', updated);
-			isEditingTitle = false;
-		} catch (err) {
-			console.error('Failed to update title:', err);
-		} finally {
-			isUpdating = false;
-		}
+		$updatePhotoMutation.mutate(
+			{ 
+				photoId: photo.id, 
+				updates: { title: newTitle || null } 
+			},
+			{
+				onSuccess: (updated) => {
+					photo = updated;
+					dispatch('update', updated);
+					isEditingTitle = false;
+				},
+				onError: (err) => {
+					console.error('Failed to update title:', err);
+				}
+			}
+		);
 	}
 
 	function cancelEditingTitle() {
@@ -149,7 +157,6 @@
 				class="btn btn-sm flex-1"
 				class:btn-success={pickRejectState === 'pick'}
 				class:btn-outline={pickRejectState !== 'pick'}
-				disabled={isUpdating}
 				on:click={() => updatePickRejectState(pickRejectState === 'pick' ? 'none' : 'pick')}
 			>
 				<Icon icon="mdi:check-circle" class="text-lg" />
@@ -159,7 +166,7 @@
 				class="btn btn-sm flex-1"
 				class:btn-ghost={pickRejectState === 'none'}
 				class:btn-outline={pickRejectState === 'none'}
-				disabled={isUpdating || pickRejectState === 'none'}
+				disabled={pickRejectState === 'none'}
 				on:click={() => updatePickRejectState('none')}
 			>
 				<Icon icon="mdi:flag-outline" class="text-lg" />
@@ -169,7 +176,6 @@
 				class="btn btn-sm flex-1"
 				class:btn-error={pickRejectState === 'reject'}
 				class:btn-outline={pickRejectState !== 'reject'}
-				disabled={isUpdating}
 				on:click={() => updatePickRejectState(pickRejectState === 'reject' ? 'none' : 'reject')}
 			>
 				<Icon icon="mdi:close-circle" class="text-lg" />
@@ -190,7 +196,6 @@
 			{#each [1, 2, 3, 4, 5] as rating}
 				<button
 					class="btn btn-ghost btn-sm p-1 min-h-0 h-8"
-					disabled={isUpdating}
 					on:click={() => updateStars(rating === stars ? 0 : rating)}
 				>
 					<Icon 
@@ -204,7 +209,6 @@
 			{#if stars > 0}
 				<button
 					class="btn btn-ghost btn-xs ml-2"
-					disabled={isUpdating}
 					on:click={() => updateStars(0)}
 				>
 					Clear
@@ -239,20 +243,20 @@
 							class="input input-xs input-bordered flex-1"
 							bind:value={titleInput}
 							on:keydown={handleTitleKeydown}
-							disabled={isUpdating}
+							disabled={$updatePhotoMutation.isPending}
 							placeholder="Enter title..."
 						/>
 						<button
 							class="btn btn-xs btn-success"
 							on:click={saveTitle}
-							disabled={isUpdating}
+							disabled={$updatePhotoMutation.isPending}
 						>
 							<Icon icon="mdi:check" />
 						</button>
 						<button
 							class="btn btn-xs btn-ghost"
 							on:click={cancelEditingTitle}
-							disabled={isUpdating}
+							disabled={$updatePhotoMutation.isPending}
 						>
 							<Icon icon="mdi:close" />
 						</button>
