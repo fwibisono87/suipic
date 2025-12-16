@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { createQuery } from '@tanstack/svelte-query';
 	import Icon from '@iconify/svelte';
-	import { photographerApi, type TClient, photosApi } from '$lib/api';
-	import { authToken } from '$lib/stores';
 	import { LoadingSpinner } from '$lib/components';
-	import type { TAlbum, TPhoto } from '$lib/types';
+	import type { TAlbum } from '$lib/types';
+	import { useListClients } from '$lib/queries/photographer';
+	import { usePhotosQuery } from '$lib/queries/photos';
+	import { useAlbumUsersQuery } from '$lib/queries/albums';
 
 	export let album: TAlbum | null = null;
 	export let onSubmit: (data: AlbumFormData) => Promise<void>;
@@ -34,26 +34,9 @@
 	let selectedClients: number[] = [];
 	let thumbnailPhotoId: number | null = album?.thumbnailPhotoId || null;
 
-	const clientsQuery = createQuery({
-		queryKey: ['clients'],
-		queryFn: () => photographerApi.listClients($authToken || ''),
-		enabled: !!$authToken
-	});
-
-	const photosQuery = createQuery({
-		queryKey: ['photos', album?.id],
-		queryFn: () => photosApi.listByAlbum(album!.id),
-		enabled: !!album?.id
-	});
-
-	const albumUsersQuery = createQuery({
-		queryKey: ['albumUsers', album?.id],
-		queryFn: async () => {
-			const { albumsApi } = await import('$lib/api');
-			return albumsApi.getUsers(album!.id);
-		},
-		enabled: !!album?.id
-	});
+	const clientsQuery = useListClients();
+	const photosQuery = usePhotosQuery(album?.id || 0, !!album?.id);
+	const albumUsersQuery = useAlbumUsersQuery(album?.id || 0, !!album?.id);
 
 	$: if ($albumUsersQuery.data) {
 		selectedClients = $albumUsersQuery.data;
