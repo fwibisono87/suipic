@@ -37,7 +37,11 @@
 			>
 				{#if $isAuthenticated}
 					<li><a href="/">Home</a></li>
-					<li><a href="/albums">Albums</a></li>
+					{#if $currentUser?.role === EUserRole.CLIENT}
+						<li><a href="/client/albums">My Albums</a></li>
+					{:else}
+						<li><a href="/albums">Albums</a></li>
+					{/if}
 					{#if $currentUser?.role === EUserRole.PHOTOGRAPHER || $currentUser?.role === EUserRole.ADMIN}
 						<li><a href="/albums/new">New Album</a></li>
 					{/if}
@@ -57,7 +61,11 @@
 		{#if $isAuthenticated}
 			<ul class="menu menu-horizontal px-1">
 				<li><a href="/" class:active={$page.url.pathname === '/'}>Home</a></li>
-				<li><a href="/albums" class:active={$page.url.pathname.startsWith('/albums')}>Albums</a></li>
+				{#if $currentUser?.role === EUserRole.CLIENT}
+					<li><a href="/client/albums" class:active={$page.url.pathname.startsWith('/client/albums')}>My Albums</a></li>
+				{:else}
+					<li><a href="/albums" class:active={$page.url.pathname.startsWith('/albums')}>Albums</a></li>
+				{/if}
 				<li><a href="/search" class:active={$page.url.pathname === '/search'}>Search</a></li>
 				{#if $currentUser?.role === EUserRole.PHOTOGRAPHER || $currentUser?.role === EUserRole.ADMIN}
 					<li><a href="/albums/new" class:active={$page.url.pathname === '/albums/new'}>New Album</a></li>

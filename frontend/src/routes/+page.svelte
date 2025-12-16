@@ -27,7 +27,11 @@
 					</h1>
 					<p class="py-6">Manage your photos and albums with ease.</p>
 					<div class="flex gap-4 justify-center">
-						<a href="/albums" class="btn btn-primary">View Albums</a>
+						{#if $currentUser?.role === EUserRole.CLIENT}
+							<a href="/client/albums" class="btn btn-primary">View My Albums</a>
+						{:else}
+							<a href="/albums" class="btn btn-primary">View Albums</a>
+						{/if}
 						{#if $currentUser?.role === EUserRole.PHOTOGRAPHER || $currentUser?.role === EUserRole.ADMIN}
 							<a href="/albums/new" class="btn btn-outline">Create Album</a>
 						{/if}
@@ -75,10 +79,17 @@
 			<div class="card-body">
 				<h2 class="card-title">Quick Actions</h2>
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-					<button class="btn btn-outline" on:click={() => goto('/albums')}>
-						<Icon icon="mdi:image-multiple" class="text-xl" />
-						Browse Albums
-					</button>
+					{#if $currentUser?.role === EUserRole.CLIENT}
+						<button class="btn btn-outline" on:click={() => goto('/client/albums')}>
+							<Icon icon="mdi:image-multiple" class="text-xl" />
+							My Albums
+						</button>
+					{:else}
+						<button class="btn btn-outline" on:click={() => goto('/albums')}>
+							<Icon icon="mdi:image-multiple" class="text-xl" />
+							Browse Albums
+						</button>
+					{/if}
 
 					<button class="btn btn-outline" on:click={() => goto('/search')}>
 						<Icon icon="mdi:magnify" class="text-xl" />

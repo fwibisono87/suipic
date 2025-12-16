@@ -15,3 +15,6 @@ export { default as StarRating } from './StarRating.svelte';
 export { default as PickRejectButtons } from './PickRejectButtons.svelte';
 export { default as PhotoMetadata } from './PhotoMetadata.svelte';
 export { default as CommentSection } from './CommentSection.svelte';
+export { default as ClientPhotoGallery } from './ClientPhotoGallery.svelte';
+export { default as ClientLightbox } from './ClientLightbox.svelte';
+export { default as ClientPhotoInteractionPanel } from './ClientPhotoInteractionPanel.svelte';

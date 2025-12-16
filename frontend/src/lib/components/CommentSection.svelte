@@ -19,8 +19,12 @@
 	let replyToUsername: string = '';
 	let pollInterval: number | null = null;
 	let showPreview = false;
+	let isRefreshing = false;
 
-	async function loadComments() {
+	async function loadComments(silent = false) {
+		if (silent) {
+			isRefreshing = true;
+		}
 		try {
 			comments = await commentsApi.getByPhoto(photo.id);
 			error = '';
@@ -28,6 +32,7 @@
 			error = (err as Error).message;
 		} finally {
 			isLoading = false;
+			isRefreshing = false;
 		}
 	}
 
