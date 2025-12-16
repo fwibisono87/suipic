@@ -80,6 +80,11 @@
 						Browse Albums
 					</button>
 
+					<button class="btn btn-outline" on:click={() => goto('/search')}>
+						<Icon icon="mdi:magnify" class="text-xl" />
+						Search Photos
+					</button>
+
 					{#if $currentUser?.role === EUserRole.PHOTOGRAPHER || $currentUser?.role === EUserRole.ADMIN}
 						<button class="btn btn-outline" on:click={() => goto('/albums/new')}>
 							<Icon icon="mdi:plus" class="text-xl" />

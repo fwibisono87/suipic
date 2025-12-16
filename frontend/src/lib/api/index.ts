@@ -4,3 +4,4 @@ export * from './admin';
 export * from './photographer';
 export * from './photos';
 export * from './comments';
+export * from './search';
