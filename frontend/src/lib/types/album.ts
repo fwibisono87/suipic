@@ -34,8 +34,8 @@ export type TPhoto = {
 	filename: string;
 	title: string | null;
 	description: string | null;
-	dateTaken: string | null;
-	location: string | null;
+	dateTime: string | null;
+	exifData: Record<string, unknown> | null;
 	stars: number;
 	pickRejectState: string | null;
 	createdAt: string;

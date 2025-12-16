@@ -50,5 +50,25 @@ export const photosApi = {
 		}
 
 		return response.json();
+	},
+
+	async createBatch(albumId: number, files: File[]): Promise<TPhoto[]> {
+		const photos: TPhoto[] = [];
+		const errors: string[] = [];
+
+		for (const file of files) {
+			try {
+				const photo = await this.create(albumId, file);
+				photos.push(photo);
+			} catch (err) {
+				errors.push(`${file.name}: ${(err as Error).message}`);
+			}
+		}
+
+		if (errors.length > 0) {
+			throw new PhotosApiError(`Some uploads failed: ${errors.join(', ')}`);
+		}
+
+		return photos;
 	}
 };

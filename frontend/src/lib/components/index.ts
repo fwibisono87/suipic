@@ -8,3 +8,5 @@ export { default as AlbumForm } from './AlbumForm.svelte';
 export { default as PhotoGallery } from './PhotoGallery.svelte';
 export { default as PhotoThumbnail } from './PhotoThumbnail.svelte';
 export { default as Lightbox } from './Lightbox.svelte';
+export { default as PhotoUploadModal } from './PhotoUploadModal.svelte';
+export { default as PhotoUploadButton } from './PhotoUploadButton.svelte';

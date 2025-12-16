@@ -48,4 +48,10 @@ body {
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
+
+	.drag-over {
+		outline: 2px dashed hsl(var(--p));
+		outline-offset: -2px;
+		background-color: hsl(var(--p) / 0.1);
+	}
 }

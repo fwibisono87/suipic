@@ -4,7 +4,7 @@
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import Icon from '@iconify/svelte';
 	import { albumsApi, photosApi, photographerApi } from '$lib/api';
-	import { LoadingSpinner, Alert, ConfirmModal, PhotoGallery } from '$lib/components';
+	import { LoadingSpinner, Alert, ConfirmModal, PhotoGallery, PhotoUploadModal } from '$lib/components';
 	import { formatDate } from '$lib/utils';
 	import { isAuthenticated, currentUser, authToken } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
@@ -14,9 +14,7 @@
 
 	const queryClient = useQueryClient();
 
-	let uploadingFile: File | null = null;
-	let uploadError = '';
-	let isUploading = false;
+	let showUploadModal = false;
 	let showDeleteModal = false;
 	let isDeleting = false;
 	let deleteError = '';
@@ -204,19 +202,11 @@
 			<div class="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
 				<div class="flex gap-2">
 					{#if canManage()}
-						<label class="btn btn-primary btn-sm sm:btn-md" for="photo-upload">
+						<button class="btn btn-primary btn-sm sm:btn-md" on:click={() => (showUploadModal = true)}>
 							<Icon icon="mdi:upload" class="text-lg sm:text-xl" />
-							<span class="hidden sm:inline">Upload Photo</span>
+							<span class="hidden sm:inline">Upload Photos</span>
 							<span class="sm:hidden">Upload</span>
-						</label>
-						<input
-							id="photo-upload"
-							type="file"
-							accept="image/*"
-							class="hidden"
-							on:change={handleFileSelect}
-							disabled={isUploading}
-						/>
+						</button>
 					{/if}
 				</div>
 				
@@ -243,17 +233,6 @@
 					</div>
 				{/if}
 			</div>
-
-			{#if uploadError}
-				<Alert type="error" message={uploadError} dismissible onDismiss={() => (uploadError = '')} />
-			{/if}
-
-			{#if isUploading}
-				<div class="alert alert-info">
-					<LoadingSpinner size="sm" />
-					<span>Uploading {uploadingFile?.name}...</span>
-				</div>
-			{/if}
 
 			<div class="divider"></div>
 
@@ -299,5 +278,8 @@
 	cancelText="Cancel"
 	confirmButtonClass="btn-error"
 	onConfirm={handleDelete}
+	onCancel={() => (showDeleteModal = false)}
+/>
+andleDelete}
 	onCancel={() => (showDeleteModal = false)}
 />
