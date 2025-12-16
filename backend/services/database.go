@@ -300,3 +300,7 @@ func (s *DatabaseService) GetCommentRepo() repository.CommentRepository {
 func (s *DatabaseService) GetUserRepo() repository.UserRepository {
 	return repository.NewPostgresUserRepository(s.db)
 }
+
+func (s *DatabaseService) GetSystemSettingsRepo() repository.SystemSettingsRepository {
+	return repository.NewPostgresSystemSettingsRepository(s.db)
+}

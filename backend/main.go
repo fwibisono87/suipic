@@ -55,6 +55,7 @@ func main() {
 	albumService := services.NewAlbumService(dbService.GetDB())
 	commentService := services.NewCommentService(dbService.GetCommentRepo(), dbService.GetUserRepo())
 	photoService := services.NewPhotoService(dbService.GetPhotoRepo(), storageService, esService, albumService, dbService.GetCommentRepo())
+	systemSettingsService := services.NewSystemSettingsService(dbService.GetSystemSettingsRepo())
 
 	app := fiber.New(fiber.Config{
 		AppName: "Suipic API",
@@ -79,7 +80,7 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	setupRoutes(app, authService, storageService, dbService, albumService, photoService, commentService, esService)
+	setupRoutes(app, authService, storageService, dbService, albumService, photoService, commentService, esService, systemSettingsService)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -100,7 +101,8 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService, commentService *services.CommentService, esService *services.ElasticsearchService) {
+func setupRoutes(app *fiber.App, authService *services.AuthService, storageService *services.StorageService, dbService *services.DatabaseService, albumService *services.AlbumService, photoService *services.PhotoService, commentService *services.CommentService, esService *services.ElasticsearchService, systemSettingsService *services.SystemSettingsService) {
+	_ = systemSettingsService
 	authHandler := handlers.NewAuthHandler(authService)
 	photoHandler := handlers.NewPhotoHandler(storageService, photoService, albumService, commentService, esService)
 	albumHandler := handlers.NewAlbumHandler(albumService)
