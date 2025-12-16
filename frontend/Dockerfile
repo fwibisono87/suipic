@@ -28,8 +28,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Create non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+RUN getent group 1000 || addgroup -g 1000 appuser && \
+    getent passwd 1000 || adduser -D -u 1000 -G appuser appuser
 
 # Install pnpm
 RUN npm install -g pnpm@8.15.0
