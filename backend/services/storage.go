@@ -7,17 +7,19 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	_ "image/gif"
 	"io"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/chai2010/webp"
 	"github.com/disintegration/imaging"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/suipic/backend/config"
+	_ "golang.org/x/image/webp"
 )
 
 type StorageService struct {
@@ -99,25 +101,37 @@ func (s *StorageService) InitializeBucket(ctx context.Context) error {
 
 func (s *StorageService) UploadPhoto(ctx context.Context, fileName string, reader io.Reader, size int64, contentType string) (*UploadResult, error) {
 	fileID := uuid.New().String()
-	ext := strings.ToLower(filepath.Ext(fileName))
-	if ext == "" {
-		ext = ".jpg"
-	}
-	objectName := fmt.Sprintf("%s%s%s", photosPrefix, fileID, ext)
+	objectName := fmt.Sprintf("%s%s.webp", photosPrefix, fileID)
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file data: %w", err)
 	}
 
+	var webpData []byte
+	if isImageContentType(contentType) {
+		img, _, err := image.Decode(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode image: %w", err)
+		}
+
+		var buf bytes.Buffer
+		if err := webp.Encode(&buf, img, &webp.Options{Quality: 85}); err != nil {
+			return nil, fmt.Errorf("failed to encode image as WebP: %w", err)
+		}
+		webpData = buf.Bytes()
+	} else {
+		webpData = data
+	}
+
 	_, err = s.client.PutObject(
 		ctx,
 		s.bucketName,
 		objectName,
-		bytes.NewReader(data),
-		int64(len(data)),
+		bytes.NewReader(webpData),
+		int64(len(webpData)),
 		minio.PutObjectOptions{
-			ContentType: contentType,
+			ContentType: "image/webp",
 		},
 	)
 	if err != nil {
@@ -127,13 +141,13 @@ func (s *StorageService) UploadPhoto(ctx context.Context, fileName string, reade
 	result := &UploadResult{
 		FileID:      fileID,
 		FileName:    fileName,
-		Size:        int64(len(data)),
-		ContentType: contentType,
+		Size:        int64(len(webpData)),
+		ContentType: "image/webp",
 		UploadedAt:  time.Now(),
 	}
 
 	if isImageContentType(contentType) {
-		thumbnailID, err := s.generateThumbnail(ctx, fileID, bytes.NewReader(data), ext)
+		thumbnailID, err := s.generateThumbnail(ctx, fileID, bytes.NewReader(data))
 		if err != nil {
 			return result, nil
 		}
@@ -143,8 +157,8 @@ func (s *StorageService) UploadPhoto(ctx context.Context, fileName string, reade
 	return result, nil
 }
 
-func (s *StorageService) generateThumbnail(ctx context.Context, fileID string, reader io.Reader, ext string) (string, error) {
-	img, format, err := image.Decode(reader)
+func (s *StorageService) generateThumbnail(ctx context.Context, fileID string, reader io.Reader) (string, error) {
+	img, _, err := image.Decode(reader)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode image: %w", err)
 	}
@@ -152,20 +166,12 @@ func (s *StorageService) generateThumbnail(ctx context.Context, fileID string, r
 	thumbnail := imaging.Fit(img, thumbnailWidth, thumbnailHeight, imaging.Lanczos)
 
 	var buf bytes.Buffer
-	switch format {
-	case "jpeg", "jpg":
-		err = jpeg.Encode(&buf, thumbnail, &jpeg.Options{Quality: 85})
-	case "png":
-		err = png.Encode(&buf, thumbnail)
-	default:
-		err = jpeg.Encode(&buf, thumbnail, &jpeg.Options{Quality: 85})
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to encode thumbnail: %w", err)
+	if err := webp.Encode(&buf, thumbnail, &webp.Options{Quality: 85}); err != nil {
+		return "", fmt.Errorf("failed to encode thumbnail as WebP: %w", err)
 	}
 
 	thumbnailID := fileID
-	thumbnailName := fmt.Sprintf("%s%s%s", thumbnailPrefix, thumbnailID, ext)
+	thumbnailName := fmt.Sprintf("%s%s.webp", thumbnailPrefix, thumbnailID)
 
 	_, err = s.client.PutObject(
 		ctx,
@@ -174,7 +180,7 @@ func (s *StorageService) generateThumbnail(ctx context.Context, fileID string, r
 		bytes.NewReader(buf.Bytes()),
 		int64(buf.Len()),
 		minio.PutObjectOptions{
-			ContentType: "image/jpeg",
+			ContentType: "image/webp",
 		},
 	)
 	if err != nil {
