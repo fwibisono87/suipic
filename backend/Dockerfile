@@ -32,8 +32,8 @@ WORKDIR /app
 
 # Install runtime dependencies
 RUN apk --no-cache add ca-certificates curl netcat-openbsd tzdata && \
-    addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+    (getent group 1000 || addgroup -g 1000 appuser) && \
+    (getent passwd 1000 || adduser -D -u 1000 -G appuser appuser)
 
 # Copy binaries from builder
 COPY --from=builder /app/main .
