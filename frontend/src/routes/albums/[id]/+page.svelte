@@ -4,7 +4,7 @@
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import Icon from '@iconify/svelte';
 	import { albumsApi, photosApi, photographerApi } from '$lib/api';
-	import { LoadingSpinner, Alert, ConfirmModal } from '$lib/components';
+	import { LoadingSpinner, Alert, ConfirmModal, PhotoGallery } from '$lib/components';
 	import { formatDate } from '$lib/utils';
 	import { isAuthenticated, currentUser, authToken } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
@@ -20,6 +20,7 @@
 	let showDeleteModal = false;
 	let isDeleting = false;
 	let deleteError = '';
+	let galleryLayout: 'grid' | 'masonry' = 'grid';
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -104,6 +105,10 @@
 			isDeleting = false;
 		}
 	};
+
+	function toggleLayout() {
+		galleryLayout = galleryLayout === 'grid' ? 'masonry' : 'grid';
+	}
 </script>
 
 <svelte:head>
@@ -142,6 +147,12 @@
 							<div class="flex items-center gap-1">
 								<Icon icon="mdi:map-marker" class="text-base" />
 								<span>{$albumQuery.data.location}</span>
+							</div>
+						{/if}
+						{#if $photosQuery.data}
+							<div class="flex items-center gap-1">
+								<Icon icon="mdi:image-multiple" class="text-base" />
+								<span>{$photosQuery.data.length} {$photosQuery.data.length === 1 ? 'photo' : 'photos'}</span>
 							</div>
 						{/if}
 					</div>
@@ -190,22 +201,48 @@
 				<Alert type="error" message={deleteError} dismissible onDismiss={() => (deleteError = '')} />
 			{/if}
 
-			{#if canManage()}
+			<div class="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
 				<div class="flex gap-2">
-					<label class="btn btn-primary" for="photo-upload">
-						<Icon icon="mdi:upload" class="text-xl" />
-						Upload Photo
-					</label>
-					<input
-						id="photo-upload"
-						type="file"
-						accept="image/*"
-						class="hidden"
-						on:change={handleFileSelect}
-						disabled={isUploading}
-					/>
+					{#if canManage()}
+						<label class="btn btn-primary btn-sm sm:btn-md" for="photo-upload">
+							<Icon icon="mdi:upload" class="text-lg sm:text-xl" />
+							<span class="hidden sm:inline">Upload Photo</span>
+							<span class="sm:hidden">Upload</span>
+						</label>
+						<input
+							id="photo-upload"
+							type="file"
+							accept="image/*"
+							class="hidden"
+							on:change={handleFileSelect}
+							disabled={isUploading}
+						/>
+					{/if}
 				</div>
-			{/if}
+				
+				{#if $photosQuery.data && $photosQuery.data.length > 0}
+					<div class="flex gap-2">
+						<button
+							class="btn btn-xs sm:btn-sm btn-outline"
+							class:btn-active={galleryLayout === 'grid'}
+							on:click={() => (galleryLayout = 'grid')}
+							aria-label="Grid layout"
+						>
+							<Icon icon="mdi:view-grid" class="text-base sm:text-xl" />
+							<span class="hidden sm:inline">Grid</span>
+						</button>
+						<button
+							class="btn btn-xs sm:btn-sm btn-outline"
+							class:btn-active={galleryLayout === 'masonry'}
+							on:click={() => (galleryLayout = 'masonry')}
+							aria-label="Masonry layout"
+						>
+							<Icon icon="mdi:view-quilt" class="text-base sm:text-xl" />
+							<span class="hidden sm:inline">Masonry</span>
+						</button>
+					</div>
+				{/if}
+			</div>
 
 			{#if uploadError}
 				<Alert type="error" message={uploadError} dismissible onDismiss={() => (uploadError = '')} />
@@ -228,37 +265,8 @@
 				<Alert type="error" message={$photosQuery.error?.message || 'Failed to load photos'} />
 			{:else if $photosQuery.data && $photosQuery.data.length > 0}
 				<div>
-					<h2 class="text-2xl font-bold mb-4">Photos</h2>
-					<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-						{#each $photosQuery.data as photo}
-							<div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
-								<figure class="h-48 bg-base-300">
-									<img
-										src={`/api/thumbnails/${photo.id}`}
-										alt={photo.title || photo.filename}
-										class="object-cover w-full h-full"
-									/>
-								</figure>
-								<div class="card-body p-4">
-									<h3 class="card-title text-sm">{photo.title || photo.filename}</h3>
-									<div class="flex items-center gap-2">
-										{#if photo.stars > 0}
-											<div class="flex">
-												{#each Array(photo.stars) as _}
-													<Icon icon="mdi:star" class="text-warning text-base" />
-												{/each}
-											</div>
-										{/if}
-										{#if photo.pickRejectState === 'pick'}
-											<span class="badge badge-success badge-sm">Pick</span>
-										{:else if photo.pickRejectState === 'reject'}
-											<span class="badge badge-error badge-sm">Reject</span>
-										{/if}
-									</div>
-								</div>
-							</div>
-						{/each}
-					</div>
+					<h2 class="text-2xl font-bold mb-6">Photos</h2>
+					<PhotoGallery photos={$photosQuery.data} layout={galleryLayout} />
 				</div>
 			{:else}
 				<div class="text-center py-20">

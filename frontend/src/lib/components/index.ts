@@ -5,3 +5,6 @@ export { default as Footer } from './Footer.svelte';
 export { default as Card } from './Card.svelte';
 export { default as ConfirmModal } from './ConfirmModal.svelte';
 export { default as AlbumForm } from './AlbumForm.svelte';
+export { default as PhotoGallery } from './PhotoGallery.svelte';
+export { default as PhotoThumbnail } from './PhotoThumbnail.svelte';
+export { default as Lightbox } from './Lightbox.svelte';
