@@ -3,11 +3,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml* package-lock.json* yarn.lock* ./
-
-# Install pnpm and dependencies
+# Install pnpm
 RUN npm install -g pnpm@8.15.0
+
+# Copy package files
+COPY package.json pnpm-lock.yaml* ./
+
+# Install dependencies
 RUN pnpm install --frozen-lockfile
 
 # Copy source code
@@ -25,15 +27,26 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy built application
+# Create non-root user
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
+# Install pnpm
+RUN npm install -g pnpm@8.15.0
+
+# Copy package files and install production dependencies
+COPY package.json ./
+RUN pnpm add @sveltejs/adapter-node
+
+# Copy built application from builder
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package.json ./package.json
 
-# Install pnpm and production dependencies only
-RUN npm install -g pnpm@8.15.0
+# Change ownership to appuser
+RUN chown -R appuser:appuser /app
 
-# Install adapter-node if not already in package.json
-RUN pnpm add @sveltejs/adapter-node
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 3001
@@ -41,6 +54,11 @@ EXPOSE 3001
 # Environment variables
 ENV PORT=3001
 ENV HOST=0.0.0.0
+ENV NODE_ENV=production
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/ || exit 1
 
 # Run the application
 CMD ["node", "build"]

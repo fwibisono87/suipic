@@ -2,6 +2,43 @@
 
 Complete Docker Compose configuration has been created for the Suipic application.
 
+## Recent Updates (Multi-Stage Builds & Enhanced Nginx)
+
+### ✅ Backend Dockerfile - Multi-Stage Build
+- Implemented optimized multi-stage build with Go 1.24
+- Binary optimization: `-ldflags='-w -s -extldflags "-static"'`
+- Reduced image size to ~20-30MB
+- Non-root user execution (appuser:1000)
+- Health checks on `/api/health` endpoint
+- Includes migration tool build
+
+### ✅ Frontend Dockerfile - Multi-Stage Build with pnpm
+- Implemented multi-stage build with pnpm package manager
+- Uses Node 20 Alpine for minimal size
+- Build-time API URL configuration via `PUBLIC_API_URL` arg
+- Non-root user execution (appuser:1000)
+- Production-optimized SvelteKit build
+- Health checks with wget
+
+### ✅ Enhanced Nginx Configuration
+- **Rate Limiting**: 3 zones (login: 5/min, API: 10/s, general: 30/s)
+- **Gzip Compression**: Level 6, 30+ MIME types, 256-byte minimum
+- **SSL/TLS**: Pre-configured HTTPS server with TLS 1.2/1.3, modern ciphers
+- **Security Headers**: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, HSTS
+- **Static Asset Caching**: 1-year cache for images, fonts, CSS, JS
+- **HTTP/2**: Enabled for better performance
+- **OCSP Stapling**: Certificate validation
+- **Health Endpoint**: `/health` for monitoring
+- **Upstream Health Checks**: max_fails=3, fail_timeout=30s
+- **Connection Pooling**: Keepalive 32 connections to upstreams
+
+### ✅ Documentation Updates
+- Enhanced `DOCKER.md` with multi-stage build details
+- Comprehensive `docker/nginx/README.md` with rate limiting and SSL guide
+- SSL certificate setup guide in `docker/nginx/ssl/README.md`
+
+Complete Docker Compose configuration has been created for the Suipic application.
+
 ## Files Created
 
 ### Root Directory
@@ -83,35 +120,51 @@ Complete Docker Compose configuration has been created for the Suipic applicatio
   - Health checks
 
 ### 4. Backend (Go Fiber)
-- **Build**: Custom Dockerfile
+- **Build**: Custom multi-stage Dockerfile
 - **Port**: 3000
 - **Features**:
-  - Multi-stage build
+  - **Multi-stage build**: golang:1.24-alpine → alpine:latest
+  - **Optimized binaries**: `-ldflags='-w -s -extldflags "-static"'`
+  - **Size**: ~20-30MB total image
+  - **Non-root user**: appuser:1000
   - Auto migrations
-  - Health endpoint
+  - Health endpoint with checks
   - Dependency wait scripts
   - Graceful shutdown
 
 ### 5. Frontend (SvelteKit)
-- **Build**: Custom Dockerfile
+- **Build**: Custom multi-stage Dockerfile with pnpm
 - **Port**: 3001
 - **Features**:
-  - Multi-stage build
-  - Node adapter
+  - **Multi-stage build**: node:20-alpine → node:20-alpine
+  - **Package manager**: pnpm 8.15.0
+  - **Build args**: PUBLIC_API_URL for API configuration
+  - **Non-root user**: appuser:1000
+  - Node adapter for SSR
   - Production optimization
-  - Environment variable injection
+  - Health checks with wget
+  - Frozen lockfile for reproducibility
 
 ### 6. Nginx
 - **Image**: nginx:alpine
 - **Ports**: 80 (HTTP), 443 (HTTPS)
 - **Features**:
-  - Reverse proxy
+  - **Reverse proxy** with upstream health checks
+  - **Rate limiting**:
+    - Login: 5 req/min (burst: 2)
+    - API: 10 req/s (burst: 20)
+    - General: 30 req/s (burst: 50)
+  - **Gzip compression**: Level 6, 30+ MIME types
+  - **SSL/TLS**: Pre-configured HTTPS with TLS 1.2/1.3
+  - **Security headers**: X-Frame-Options, X-Content-Type-Options, HSTS
+  - **Static caching**: 1-year cache for images/fonts/CSS/JS
+  - **HTTP/2** enabled
+  - **OCSP stapling** for cert validation
   - API routing (/api → backend)
   - Frontend routing (/ → frontend)
-  - SSL support (configuration ready)
-  - GZIP compression
   - Large file uploads (100MB)
   - WebSocket support
+  - Health check endpoint (/health)
 
 ## Network Architecture
 

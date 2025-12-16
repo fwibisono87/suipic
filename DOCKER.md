@@ -94,12 +94,96 @@ Download and install Docker Desktop from https://www.docker.com/products/docker-
 
 ### Services
 
-- **Nginx**: Reverse proxy handling routing and SSL termination
-- **Frontend**: SvelteKit app with Node.js adapter
-- **Backend**: Go Fiber REST API
+- **Nginx**: Reverse proxy handling routing, SSL termination, rate limiting, and gzip compression
+- **Frontend**: SvelteKit app with Node.js adapter (multi-stage pnpm build)
+- **Backend**: Go Fiber REST API (multi-stage build with optimized binaries)
 - **PostgreSQL**: Primary database
 - **Elasticsearch**: Photo search and indexing
 - **MinIO**: S3-compatible object storage
+
+## Docker Images
+
+### Backend Dockerfile
+
+The backend uses a multi-stage Docker build for optimal production images:
+
+**Builder Stage:**
+- Base: `golang:1.24-alpine`
+- Compiles Go binaries with CGO disabled
+- Build optimizations: `-ldflags='-w -s -extldflags "-static"'`
+- Strips debug symbols for smaller binary size
+- Builds both main application and migration tool
+
+**Final Stage:**
+- Base: `alpine:latest`
+- Minimal runtime with only required dependencies
+- Runs as non-root user (`appuser:1000`)
+- Includes health checks on `/api/health`
+- Total image size: ~20-30MB
+
+**Security Features:**
+- Non-root user execution
+- Minimal attack surface
+- No build tools in final image
+- Read-only file system compatible
+
+### Frontend Dockerfile
+
+The frontend uses a multi-stage Docker build with pnpm:
+
+**Builder Stage:**
+- Base: `node:20-alpine`
+- Uses pnpm 8.15.0 for efficient package management
+- Frozen lockfile for reproducible builds
+- Builds production-optimized SvelteKit application
+- Supports build-time API URL configuration
+
+**Final Stage:**
+- Base: `node:20-alpine`
+- Runs as non-root user (`appuser:1000`)
+- Only includes built application and minimal dependencies
+- Uses SvelteKit's Node adapter for SSR
+- Includes health checks
+
+**Build Arguments:**
+- `PUBLIC_API_URL`: Configure API endpoint at build time
+
+### Nginx Configuration
+
+The nginx reverse proxy includes advanced features:
+
+**Rate Limiting:**
+- Login endpoint: 5 requests/minute (burst: 2)
+- API endpoints: 10 requests/second (burst: 20)
+- General traffic: 30 requests/second (burst: 50)
+- Connection limit: 10 concurrent per IP
+
+**Gzip Compression:**
+- Enabled for all text-based content
+- Compression level: 6
+- Minimum file size: 256 bytes
+- Supports 30+ MIME types including JSON, JS, CSS, SVG, fonts
+
+**SSL/TLS Configuration:**
+- TLS 1.2 and 1.3 support
+- Modern cipher suites
+- OCSP stapling enabled
+- HSTS header with preload support
+- Session caching for performance
+
+**Security Headers:**
+- X-Frame-Options: SAMEORIGIN
+- X-Content-Type-Options: nosniff
+- X-XSS-Protection: 1; mode=block
+- Referrer-Policy: no-referrer-when-downgrade
+- Strict-Transport-Security (HTTPS only)
+
+**Performance Features:**
+- HTTP/2 support
+- Keepalive connections to upstreams
+- Static asset caching (1 year for images, fonts, etc.)
+- Connection pooling
+- Optimized buffer sizes
 
 ## Configuration
 
@@ -263,16 +347,47 @@ docker run -it --rm \
 
 ### Enable HTTPS in Nginx
 
-Edit `docker/nginx/conf.d/default.conf`:
+The nginx configuration is pre-configured with HTTPS support. Once certificates are in place:
 
-1. Uncomment the HTTPS server block
-2. Uncomment the HTTP to HTTPS redirect
-3. Update `server_name` to your domain
+1. **Verify certificates are mounted:**
+   ```bash
+   docker-compose exec nginx ls -la /etc/nginx/ssl/
+   ```
 
-```bash
-# Restart nginx
-docker-compose restart nginx
+2. **The HTTPS server block is active** - nginx will automatically serve on port 443 when certificates are present
+
+3. **Optional: Enable HTTP to HTTPS redirect**
+   Edit `docker/nginx/conf.d/default.conf` and uncomment these lines:
+   ```nginx
+   # location / {
+   #     return 301 https://$host$request_uri;
+   # }
+   ```
+
+4. **Update server_name** for your domain (optional):
+   Replace `server_name _;` with `server_name yourdomain.com;`
+
+5. **Restart nginx:**
+   ```bash
+   docker-compose restart nginx
+   ```
+
+### Certificate Mounting
+
+SSL certificates are mounted via Docker volumes in `docker-compose.yml`:
+
+```yaml
+nginx:
+  volumes:
+    - ./docker/nginx/ssl:/etc/nginx/ssl:ro
 ```
+
+The `:ro` flag mounts certificates as read-only for security. Place your certificate files in `docker/nginx/ssl/`:
+- `cert.pem` - SSL certificate (public key)
+- `key.pem` - Private key
+- `chain.pem` - Certificate chain (optional)
+
+**Important:** Certificate files are excluded from git via `.gitignore` for security.
 
 ### Auto-Renewal Setup
 
