@@ -63,3 +63,9 @@ type PhotographerClientRepository interface {
 	GetClientsByPhotographer(ctx context.Context, photographerID int64) ([]*models.User, error)
 	Delete(ctx context.Context, photographerID, clientID int64) error
 }
+
+type SystemSettingsRepository interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value string) error
+	GetAll(ctx context.Context) (map[string]string, error)
+}
