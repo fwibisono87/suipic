@@ -1,59 +1,44 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import type { TComment, TPhoto } from '$lib/types';
-	import { commentsApi } from '$lib/api';
 	import { currentUser } from '$lib/stores';
 	import { formatRelativeTime } from '$lib/utils/format';
 	import { LoadingSpinner } from '$lib/components';
+	import { useCommentsQuery, useCreateCommentMutation } from '$lib/queries/comments';
 
 	export let photo: TPhoto;
 	export let photographerId: number;
 
-	let comments: TComment[] = [];
-	let isLoading = true;
-	let error = '';
 	let commentText = '';
-	let isSubmitting = false;
 	let replyToCommentId: number | null = null;
 	let replyToUsername: string = '';
-	let pollInterval: number | null = null;
 	let showPreview = false;
-	let isRefreshing = false;
 
-	async function loadComments(silent = false) {
-		if (silent) {
-			isRefreshing = true;
-		}
-		try {
-			comments = await commentsApi.getByPhoto(photo.id);
-			error = '';
-		} catch (err) {
-			error = (err as Error).message;
-		} finally {
-			isLoading = false;
-			isRefreshing = false;
-		}
-	}
+	const commentsQuery = useCommentsQuery({
+		photoId: photo.id,
+		refetchInterval: 10000
+	});
+
+	const createCommentMutation = useCreateCommentMutation();
 
 	async function handleSubmit() {
-		if (!commentText.trim() || isSubmitting) return;
+		if (!commentText.trim() || $createCommentMutation.isPending) return;
 
-		isSubmitting = true;
-		error = '';
-
-		try {
-			await commentsApi.create(photo.id, commentText.trim(), replyToCommentId);
-			commentText = '';
-			replyToCommentId = null;
-			replyToUsername = '';
-			showPreview = false;
-			await loadComments();
-		} catch (err) {
-			error = (err as Error).message;
-		} finally {
-			isSubmitting = false;
-		}
+		$createCommentMutation.mutate(
+			{
+				photoId: photo.id,
+				text: commentText.trim(),
+				parentCommentId: replyToCommentId
+			},
+			{
+				onSuccess: () => {
+					commentText = '';
+					replyToCommentId = null;
+					replyToUsername = '';
+					showPreview = false;
+				}
+			}
+		);
 	}
 
 	function handleReply(comment: TComment) {
@@ -90,20 +75,12 @@
 		}
 	}
 
-	onMount(() => {
-		loadComments();
-		pollInterval = window.setInterval(() => {
-			loadComments(true);
-		}, 10000);
-	});
-
-	onDestroy(() => {
-		if (pollInterval) {
-			clearInterval(pollInterval);
-		}
-	});
-
 	$: previewText = commentText.trim();
+	$: comments = $commentsQuery.data || [];
+	$: isLoading = $commentsQuery.isLoading;
+	$: error = $commentsQuery.error?.message || $createCommentMutation.error?.message || '';
+	$: isSubmitting = $createCommentMutation.isPending;
+	$: isRefreshing = $commentsQuery.isFetching && !$commentsQuery.isLoading;
 	
 	$: totalComments = comments.reduce((total, comment) => {
 		return total + 1 + (comment.replies?.length || 0);
