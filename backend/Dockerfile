@@ -1,10 +1,10 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24 AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apt-get update && apt-get install -y libwebp-dev
 
 # Copy go mod files
 COPY go.mod go.sum ./
@@ -14,26 +14,26 @@ RUN go mod download
 COPY . .
 
 # Build the application with optimizations
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -a -installsuffix cgo \
-    -ldflags='-w -s -extldflags "-static"' \
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+    -a \
+    -ldflags='-w -s' \
     -o main .
 
 # Build migration tool
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -a -installsuffix cgo \
-    -ldflags='-w -s -extldflags "-static"' \
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+    -a \
+    -ldflags='-w -s' \
     -o migrate cmd/migrate/main.go
 
 # Final stage
-FROM alpine:latest
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates curl netcat-openbsd tzdata && \
-    (getent group 1000 || addgroup -g 1000 appuser) && \
-    (getent passwd 1000 || adduser -D -u 1000 -G appuser appuser)
+RUN apt-get update && apt-get install -y ca-certificates curl netcat-openbsd libwebp7 && \
+    (getent group 1000 || groupadd -g 1000 appuser) && \
+    (getent passwd 1000 || useradd -u 1000 -g appuser appuser)
 
 # Copy binaries from builder
 COPY --from=builder /app/main .
