@@ -21,6 +21,10 @@ func (s *SystemSettingsService) GetSetting(ctx context.Context, key string) (str
 	return s.repo.Get(ctx, key)
 }
 
+func (s *SystemSettingsService) GetAllSettings(ctx context.Context) (map[string]string, error) {
+	return s.repo.GetAll(ctx)
+}
+
 func (s *SystemSettingsService) UpdateSetting(ctx context.Context, key string, value string) error {
 	return s.repo.Set(ctx, key, value)
 }
@@ -30,11 +34,11 @@ func (s *SystemSettingsService) GetImageProtectionEnabled(ctx context.Context) (
 	if err != nil {
 		return false, err
 	}
-	
+
 	enabled, err := strconv.ParseBool(value)
 	if err != nil {
 		return false, err
 	}
-	
+
 	return enabled, nil
 }

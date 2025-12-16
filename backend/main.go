@@ -124,6 +124,8 @@ func setupRoutes(app *fiber.App, authService *services.AuthService, storageServi
 	admin := api.Group("/admin")
 	admin.Post("/photographers", middleware.AdminOnly(authService), adminHandler.CreatePhotographer)
 	admin.Get("/photographers", middleware.AdminOnly(authService), adminHandler.ListPhotographers)
+	admin.Get("/settings", middleware.AdminOnly(authService), adminHandler.GetSettings)
+	admin.Put("/settings/:key", middleware.AdminOnly(authService), adminHandler.UpdateSetting)
 
 	albums := api.Group("/albums")
 	albums.Post("/", middleware.AuthRequired(authService), albumHandler.CreateAlbum)
