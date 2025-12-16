@@ -2,35 +2,31 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
-	import { isAuthenticated, currentUser, authToken } from '$lib/stores';
+	import { isAuthenticated, currentUser } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
 	import { Card, Alert, LoadingSpinner } from '$lib/components';
-	import { photographerApi, type TCreateClientRequest, type TClient } from '$lib/api';
+	import { useListClients, useSearchClients, useCreateOrLinkClient } from '$lib/queries/photographer';
+	import type { TCreateClientRequest, TClient } from '$lib/api';
 	import { validateEmail, validateUsername } from '$lib/utils';
-
-	let clients: TClient[] = [];
-	let isLoadingList = true;
-	let listError = '';
 
 	let friendlyName = '';
 	let username = '';
 	let email = '';
 	let password = '';
-	let isCreating = false;
-	let createError = '';
-	let createSuccess = false;
 	let showCreateForm = true;
 
 	let searchQuery = '';
-	let searchResults: TClient[] = [];
-	let isSearching = false;
-	let searchError = '';
-	let showSearchResults = false;
 	let searchTimeout: NodeJS.Timeout | null = null;
+	let debouncedSearchQuery = '';
 
 	let currentPage = 1;
 	let itemsPerPage = 10;
 
+	const clientsQuery = useListClients();
+	const searchQuery$ = useSearchClients(debouncedSearchQuery);
+	const createOrLinkMutation = useCreateOrLinkClient();
+
+	$: clients = $clientsQuery.data || [];
 	$: paginatedClients = clients.slice(
 		(currentPage - 1) * itemsPerPage,
 		currentPage * itemsPerPage
@@ -38,6 +34,8 @@
 	$: totalPages = Math.ceil(clients.length / itemsPerPage);
 	$: hasNextPage = currentPage < totalPages;
 	$: hasPrevPage = currentPage > 1;
+	$: searchResults = $searchQuery$.data || [];
+	$: showSearchResults = !showCreateForm && debouncedSearchQuery.trim().length > 0;
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -49,95 +47,38 @@
 			goto('/');
 			return;
 		}
-
-		loadClients();
 	});
-
-	async function loadClients() {
-		if (!$authToken) return;
-
-		isLoadingList = true;
-		listError = '';
-
-		try {
-			clients = await photographerApi.listClients($authToken);
-		} catch (err: unknown) {
-			listError = (err as { message: string }).message || 'Failed to load clients';
-		} finally {
-			isLoadingList = false;
-		}
-	}
 
 	async function handleCreateClient(e: Event) {
 		e.preventDefault();
-		createError = '';
-		createSuccess = false;
 
 		if (!username || !validateUsername(username)) {
-			createError = 'Username must be between 3 and 50 characters';
 			return;
 		}
 
 		if (!email || !validateEmail(email)) {
-			createError = 'Please enter a valid email address';
 			return;
 		}
 
 		if (!password || password.length < 6) {
-			createError = 'Password must be at least 6 characters';
 			return;
 		}
 
-		if (!$authToken) {
-			createError = 'Not authenticated';
-			return;
-		}
+		const data: TCreateClientRequest = {
+			username,
+			email,
+			password,
+			friendlyName: friendlyName || undefined
+		};
 
-		isCreating = true;
-
-		try {
-			const data: TCreateClientRequest = {
-				username,
-				email,
-				password,
-				friendlyName: friendlyName || undefined
-			};
-
-			await photographerApi.createOrLinkClient(data, $authToken);
-			createSuccess = true;
-			friendlyName = '';
-			username = '';
-			email = '';
-			password = '';
-
-			await loadClients();
-		} catch (err: unknown) {
-			createError = (err as { message: string }).message || 'Failed to create client';
-		} finally {
-			isCreating = false;
-		}
-	}
-
-	async function handleSearch() {
-		if (!searchQuery.trim()) {
-			showSearchResults = false;
-			searchResults = [];
-			return;
-		}
-
-		if (!$authToken) return;
-
-		isSearching = true;
-		searchError = '';
-
-		try {
-			searchResults = await photographerApi.searchClients(searchQuery, $authToken);
-			showSearchResults = true;
-		} catch (err: unknown) {
-			searchError = (err as { message: string }).message || 'Failed to search clients';
-		} finally {
-			isSearching = false;
-		}
+		$createOrLinkMutation.mutate(data, {
+			onSuccess: () => {
+				friendlyName = '';
+				username = '';
+				email = '';
+				password = '';
+			}
+		});
 	}
 
 	function onSearchInput() {
@@ -146,42 +87,29 @@
 		}
 
 		searchTimeout = setTimeout(() => {
-			handleSearch();
+			debouncedSearchQuery = searchQuery;
 		}, 300);
 	}
 
 	async function handleLinkClient(client: TClient) {
-		if (!$authToken) return;
+		const data: TCreateClientRequest = {
+			username: client.username
+		};
 
-		isCreating = true;
-		createError = '';
-
-		try {
-			const data: TCreateClientRequest = {
-				username: client.username
-			};
-
-			await photographerApi.createOrLinkClient(data, $authToken);
-			showSearchResults = false;
-			searchQuery = '';
-			searchResults = [];
-
-			await loadClients();
-		} catch (err: unknown) {
-			createError = (err as { message: string }).message || 'Failed to link client';
-		} finally {
-			isCreating = false;
-		}
+		$createOrLinkMutation.mutate(data, {
+			onSuccess: () => {
+				searchQuery = '';
+				debouncedSearchQuery = '';
+			}
+		});
 	}
 
 	function toggleFormMode() {
 		showCreateForm = !showCreateForm;
-		createError = '';
-		searchError = '';
-		createSuccess = false;
+		$createOrLinkMutation.reset();
 		if (showCreateForm) {
-			showSearchResults = false;
 			searchQuery = '';
+			debouncedSearchQuery = '';
 		}
 	}
 
@@ -233,19 +161,18 @@
 						</button>
 					</div>
 
-					{#if createError}
+					{#if $createOrLinkMutation.isError}
 						<div class="mb-4">
-							<Alert type="error" message={createError} dismissible onDismiss={() => (createError = '')} />
+							<Alert 
+								type="error" 
+								message={$createOrLinkMutation.error?.message || 'Failed to create or link client'} 
+								dismissible 
+								onDismiss={() => $createOrLinkMutation.reset()} 
+							/>
 						</div>
 					{/if}
 
-					{#if searchError}
-						<div class="mb-4">
-							<Alert type="error" message={searchError} dismissible onDismiss={() => (searchError = '')} />
-						</div>
-					{/if}
-
-					{#if createSuccess}
+					{#if $createOrLinkMutation.isSuccess}
 						<div class="mb-4">
 							<Alert type="success" message="Client created successfully!" />
 						</div>
@@ -264,7 +191,7 @@
 									bind:value={friendlyName}
 									placeholder="John Doe"
 									class="input input-bordered w-full"
-									disabled={isCreating}
+									disabled={$createOrLinkMutation.isPending}
 								/>
 							</div>
 
@@ -279,7 +206,7 @@
 									bind:value={username}
 									placeholder="client_username"
 									class="input input-bordered w-full"
-									disabled={isCreating}
+									disabled={$createOrLinkMutation.isPending}
 									required
 								/>
 								<label class="label">
@@ -298,7 +225,7 @@
 									bind:value={email}
 									placeholder="client@example.com"
 									class="input input-bordered w-full"
-									disabled={isCreating}
+									disabled={$createOrLinkMutation.isPending}
 									required
 								/>
 							</div>
@@ -314,7 +241,7 @@
 									bind:value={password}
 									placeholder="••••••••"
 									class="input input-bordered w-full"
-									disabled={isCreating}
+									disabled={$createOrLinkMutation.isPending}
 									required
 								/>
 								<label class="label">
@@ -322,8 +249,8 @@
 								</label>
 							</div>
 
-							<button type="submit" class="btn btn-primary w-full" disabled={isCreating}>
-								{#if isCreating}
+							<button type="submit" class="btn btn-primary w-full" disabled={$createOrLinkMutation.isPending}>
+								{#if $createOrLinkMutation.isPending}
 									<LoadingSpinner size="sm" />
 								{:else}
 									<Icon icon="mdi:account-plus" class="text-lg" />
@@ -345,11 +272,21 @@
 									on:input={onSearchInput}
 									placeholder="Type to search..."
 									class="input input-bordered w-full"
-									disabled={isSearching}
+									disabled={$searchQuery$.isLoading}
 								/>
 							</div>
 
-							{#if isSearching}
+							{#if $searchQuery$.isError}
+								<div>
+									<Alert 
+										type="error" 
+										message={$searchQuery$.error?.message || 'Failed to search clients'} 
+										dismissible 
+									/>
+								</div>
+							{/if}
+
+							{#if $searchQuery$.isLoading}
 								<div class="flex justify-center py-4">
 									<LoadingSpinner size="sm" />
 								</div>
@@ -375,7 +312,7 @@
 														<button
 															class="btn btn-sm btn-primary"
 															on:click={() => handleLinkClient(client)}
-															disabled={isCreating}
+															disabled={$createOrLinkMutation.isPending}
 														>
 															<Icon icon="mdi:link" />
 															Link
@@ -405,13 +342,13 @@
 
 			<div class="lg:col-span-2">
 				<Card title="My Clients">
-					{#if listError}
+					{#if $clientsQuery.isError}
 						<div class="mb-4">
-							<Alert type="error" message={listError} />
+							<Alert type="error" message={$clientsQuery.error?.message || 'Failed to load clients'} />
 						</div>
 					{/if}
 
-					{#if isLoadingList}
+					{#if $clientsQuery.isLoading}
 						<div class="flex justify-center py-8">
 							<LoadingSpinner />
 						</div>

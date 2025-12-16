@@ -2,28 +2,25 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
-	import { isAuthenticated, currentUser, authToken } from '$lib/stores';
+	import { isAuthenticated, currentUser } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
 	import { Card, Alert, LoadingSpinner } from '$lib/components';
-	import { adminApi, type TCreatePhotographerRequest, type TCreatePhotographerResponse } from '$lib/api';
-	import type { TUser } from '$lib/types';
+	import { useListPhotographers, useCreatePhotographer } from '$lib/queries/admin';
+	import type { TCreatePhotographerRequest, TCreatePhotographerResponse } from '$lib/api';
 	import { validateEmail, validateUsername } from '$lib/utils';
-
-	let photographers: TUser[] = [];
-	let isLoadingList = true;
-	let listError = '';
 
 	let email = '';
 	let username = '';
-	let isCreating = false;
-	let createError = '';
-	let createSuccess = false;
 	let generatedCredentials: TCreatePhotographerResponse | null = null;
 	let showCredentialsModal = false;
 
 	let currentPage = 1;
 	let itemsPerPage = 10;
 
+	const photographersQuery = useListPhotographers();
+	const createPhotographerMutation = useCreatePhotographer();
+
+	$: photographers = $photographersQuery.data?.photographers || [];
 	$: paginatedPhotographers = photographers.slice(
 		(currentPage - 1) * itemsPerPage,
 		currentPage * itemsPerPage
@@ -42,68 +39,32 @@
 			goto('/');
 			return;
 		}
-
-		loadPhotographers();
 	});
-
-	async function loadPhotographers() {
-		if (!$authToken) return;
-
-		isLoadingList = true;
-		listError = '';
-
-		try {
-			const response = await adminApi.listPhotographers($authToken);
-			photographers = response.photographers || [];
-		} catch (err: unknown) {
-			listError = (err as { message: string }).message || 'Failed to load photographers';
-		} finally {
-			isLoadingList = false;
-		}
-	}
 
 	async function handleCreatePhotographer(e: Event) {
 		e.preventDefault();
-		createError = '';
-		createSuccess = false;
-		generatedCredentials = null;
 
 		if (!email || !validateEmail(email)) {
-			createError = 'Please enter a valid email address';
 			return;
 		}
 
 		if (!username || !validateUsername(username)) {
-			createError = 'Username must be between 3 and 50 characters';
 			return;
 		}
 
-		if (!$authToken) {
-			createError = 'Not authenticated';
-			return;
-		}
+		const data: TCreatePhotographerRequest = {
+			email,
+			username
+		};
 
-		isCreating = true;
-
-		try {
-			const data: TCreatePhotographerRequest = {
-				email,
-				username
-			};
-
-			const response = await adminApi.createPhotographer(data, $authToken);
-			generatedCredentials = response;
-			showCredentialsModal = true;
-			createSuccess = true;
-			email = '';
-			username = '';
-
-			await loadPhotographers();
-		} catch (err: unknown) {
-			createError = (err as { message: string }).message || 'Failed to create photographer';
-		} finally {
-			isCreating = false;
-		}
+		$createPhotographerMutation.mutate(data, {
+			onSuccess: (response) => {
+				generatedCredentials = response;
+				showCredentialsModal = true;
+				email = '';
+				username = '';
+			}
+		});
 	}
 
 	function closeCredentialsModal() {
@@ -146,13 +107,18 @@
 		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 			<div class="lg:col-span-1">
 				<Card title="Create Photographer Account">
-					{#if createError}
+					{#if $createPhotographerMutation.isError}
 						<div class="mb-4">
-							<Alert type="error" message={createError} dismissible onDismiss={() => (createError = '')} />
+							<Alert 
+								type="error" 
+								message={$createPhotographerMutation.error?.message || 'Failed to create photographer'} 
+								dismissible 
+								onDismiss={() => $createPhotographerMutation.reset()} 
+							/>
 						</div>
 					{/if}
 
-					{#if createSuccess && !showCredentialsModal}
+					{#if $createPhotographerMutation.isSuccess && !showCredentialsModal}
 						<div class="mb-4">
 							<Alert type="success" message="Photographer account created successfully!" />
 						</div>
@@ -170,7 +136,7 @@
 								bind:value={email}
 								placeholder="photographer@example.com"
 								class="input input-bordered w-full"
-								disabled={isCreating}
+								disabled={$createPhotographerMutation.isPending}
 								required
 							/>
 						</div>
@@ -186,7 +152,7 @@
 								bind:value={username}
 								placeholder="photographer_username"
 								class="input input-bordered w-full"
-								disabled={isCreating}
+								disabled={$createPhotographerMutation.isPending}
 								required
 							/>
 							<label class="label">
@@ -194,8 +160,8 @@
 							</label>
 						</div>
 
-						<button type="submit" class="btn btn-primary w-full" disabled={isCreating}>
-							{#if isCreating}
+						<button type="submit" class="btn btn-primary w-full" disabled={$createPhotographerMutation.isPending}>
+							{#if $createPhotographerMutation.isPending}
 								<LoadingSpinner size="sm" />
 							{:else}
 								<Icon icon="mdi:account-plus" class="text-lg" />
@@ -215,13 +181,13 @@
 
 			<div class="lg:col-span-2">
 				<Card title="Photographer Accounts">
-					{#if listError}
+					{#if $photographersQuery.isError}
 						<div class="mb-4">
-							<Alert type="error" message={listError} />
+							<Alert type="error" message={$photographersQuery.error?.message || 'Failed to load photographers'} />
 						</div>
 					{/if}
 
-					{#if isLoadingList}
+					{#if $photographersQuery.isLoading}
 						<div class="flex justify-center py-8">
 							<LoadingSpinner />
 						</div>
