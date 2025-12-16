@@ -19,6 +19,7 @@
 	let isDeleting = false;
 	let deleteError = '';
 	let galleryLayout: 'grid' | 'masonry' = 'grid';
+	let isUploading = false;
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -242,7 +243,7 @@
 			{:else if $photosQuery.data && $photosQuery.data.length > 0}
 				<div>
 					<h2 class="text-2xl font-bold mb-6">Photos</h2>
-					<PhotoGallery photos={$photosQuery.data} layout={galleryLayout} onPhotoUpdate={handlePhotoUpdate} />
+					<PhotoGallery photos={$photosQuery.data} layout={galleryLayout} onPhotoUpdate={handlePhotoUpdate} photographerId={$albumQuery.data?.photographerId || null} />
 				</div>
 			{:else}
 				<div class="text-center py-20">

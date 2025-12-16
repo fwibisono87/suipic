@@ -10,11 +10,13 @@ import (
 
 type CommentService struct {
 	commentRepo repository.CommentRepository
+	userRepo    repository.UserRepository
 }
 
-func NewCommentService(commentRepo repository.CommentRepository) *CommentService {
+func NewCommentService(commentRepo repository.CommentRepository, userRepo repository.UserRepository) *CommentService {
 	return &CommentService{
 		commentRepo: commentRepo,
+		userRepo:    userRepo,
 	}
 }
 
@@ -35,12 +37,38 @@ func (s *CommentService) CreateComment(ctx context.Context, comment *models.Comm
 	return s.commentRepo.Create(ctx, comment)
 }
 
+func (s *CommentService) GetCommentWithUser(ctx context.Context, commentID int) (*CommentWithUser, error) {
+	comment, err := s.commentRepo.GetByID(ctx, commentID)
+	if err != nil {
+		return nil, err
+	}
+	if comment == nil {
+		return nil, fmt.Errorf("comment not found")
+	}
+
+	user, err := s.userRepo.GetByID(ctx, comment.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user for comment: %w", err)
+	}
+
+	return &CommentWithUser{
+		Comment: comment,
+		User:    user,
+	}, nil
+}
+
 func (s *CommentService) GetCommentsByPhoto(ctx context.Context, photoID int) ([]*models.Comment, error) {
 	return s.commentRepo.GetByPhoto(ctx, photoID)
 }
 
+type CommentWithUser struct {
+	*models.Comment
+	User *models.User `json:"user"`
+}
+
 type ThreadedComment struct {
 	*models.Comment
+	User    *models.User       `json:"user"`
 	Replies []*ThreadedComment `json:"replies,omitempty"`
 }
 
@@ -54,8 +82,14 @@ func (s *CommentService) GetThreadedComments(ctx context.Context, photoID int) (
 	var threads []*ThreadedComment
 
 	for _, comment := range allComments {
+		user, err := s.userRepo.GetByID(ctx, comment.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user for comment: %w", err)
+		}
+
 		threadedComment := &ThreadedComment{
 			Comment: comment,
+			User:    user,
 			Replies: []*ThreadedComment{},
 		}
 		commentMap[comment.ID] = threadedComment

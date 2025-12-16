@@ -586,7 +586,12 @@ func (h *PhotoHandler) CreateComment(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(comment)
+	commentWithUser, err := h.commentService.GetCommentWithUser(c.Context(), comment.ID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get comment with user: "+err.Error())
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(commentWithUser)
 }
 
 func (h *PhotoHandler) GetComments(c *fiber.Ctx) error {

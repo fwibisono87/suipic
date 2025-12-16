@@ -4,8 +4,10 @@
 	import type { TPhoto } from '$lib/types';
 	import { photosApi } from '$lib/api/photos';
 	import { formatDateTime } from '$lib/utils/format';
+	import { CommentSection } from '$lib/components';
 
 	export let photo: TPhoto;
+	export let photographerId: number | null = null;
 
 	const dispatch = createEventDispatcher<{
 		update: TPhoto;
@@ -298,6 +300,14 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if photographerId !== null}
+		<div class="divider my-2"></div>
+		
+		<div class="mt-4">
+			<CommentSection {photo} {photographerId} />
+		</div>
+	{/if}
 </div>
 
 <style>

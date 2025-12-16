@@ -14,3 +14,4 @@ export { default as PhotoInteractionPanel } from './PhotoInteractionPanel.svelte
 export { default as StarRating } from './StarRating.svelte';
 export { default as PickRejectButtons } from './PickRejectButtons.svelte';
 export { default as PhotoMetadata } from './PhotoMetadata.svelte';
+export { default as CommentSection } from './CommentSection.svelte';

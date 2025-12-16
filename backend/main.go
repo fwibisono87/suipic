@@ -53,7 +53,7 @@ func main() {
 	}
 
 	albumService := services.NewAlbumService(dbService.GetDB())
-	commentService := services.NewCommentService(dbService.GetCommentRepo())
+	commentService := services.NewCommentService(dbService.GetCommentRepo(), dbService.GetUserRepo())
 	photoService := services.NewPhotoService(dbService.GetPhotoRepo(), storageService, esService, albumService, dbService.GetCommentRepo())
 
 	app := fiber.New(fiber.Config{

@@ -10,6 +10,7 @@
 	export let isOpen: boolean = false;
 	export let onClose: () => void = () => {};
 	export let onPhotoUpdate: ((photo: TPhoto) => void) | null = null;
+	export let photographerId: number | null = null;
 
 	let isLoading = true;
 	let isError = false;
@@ -290,7 +291,7 @@
 							<Icon icon="mdi:close" class="text-xl" />
 						</button>
 					</div>
-					<PhotoInteractionPanel photo={currentPhoto} on:update={handlePhotoUpdate} />
+					<PhotoInteractionPanel photo={currentPhoto} {photographerId} on:update={handlePhotoUpdate} />
 				</div>
 			</div>
 		{/if}

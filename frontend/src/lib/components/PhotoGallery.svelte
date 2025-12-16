@@ -8,6 +8,7 @@
 	export let photos: TPhoto[];
 	export let layout: 'grid' | 'masonry' = 'grid';
 	export let onPhotoUpdate: ((photo: TPhoto) => void) | null = null;
+	export let photographerId: number | null = null;
 
 	let lightboxOpen = false;
 	let currentPhotoIndex = 0;
@@ -128,7 +129,7 @@
 			{/if}
 		</div>
 
-		<Lightbox {photos} bind:currentIndex={currentPhotoIndex} bind:isOpen={lightboxOpen} onClose={closeLightbox} onPhotoUpdate={handlePhotoUpdate} />
+		<Lightbox {photos} {photographerId} bind:currentIndex={currentPhotoIndex} bind:isOpen={lightboxOpen} onClose={closeLightbox} onPhotoUpdate={handlePhotoUpdate} />
 	{/if}
 </div>
 
