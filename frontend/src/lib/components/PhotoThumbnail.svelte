@@ -3,6 +3,7 @@
 	import Icon from '@iconify/svelte';
 	import type { TPhoto } from '$lib/types';
 	import { config } from '$lib/config';
+	import { imageProtectionEnabled } from '$lib/stores';
 
 	export let photo: TPhoto;
 	export let onClick: () => void = () => {};
@@ -101,11 +102,15 @@
 			<img
 				bind:this={imgElement}
 				alt={photo.title || photo.filename}
-				class="w-full h-full object-cover transition-opacity duration-300"
+				class="w-full h-full object-cover transition-opacity duration-300 protected-image"
 				class:opacity-0={!isLoaded}
 				class:opacity-100={isLoaded}
+				class:user-select-none={$imageProtectionEnabled}
+				class:pointer-events-none={$imageProtectionEnabled}
+				draggable={!$imageProtectionEnabled}
 				on:load={handleLoad}
 				on:error={handleError}
+				on:contextmenu={handleContextMenu}
 			/>
 		{/if}
 	</div>
@@ -160,5 +165,20 @@
 			opacity: 1;
 			transform: translateY(0);
 		}
+	}
+
+	.protected-image::selection {
+		background: transparent;
+	}
+
+	.user-select-none {
+		user-select: none;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+	}
+
+	.pointer-events-none {
+		pointer-events: none;
 	}
 </style>

@@ -4,6 +4,7 @@
 	import type { TPhoto } from '$lib/types';
 	import { config } from '$lib/config';
 	import { LoadingSpinner, PhotoInteractionPanel } from '$lib/components';
+	import { imageProtectionEnabled } from '$lib/stores';
 
 	export let photos: TPhoto[];
 	export let currentIndex: number = 0;
@@ -212,11 +213,15 @@
 					bind:this={imageElement}
 					src={photoUrl}
 					alt={currentPhoto.title || currentPhoto.filename}
-					class="max-w-full max-h-[90vh] object-contain transition-opacity duration-300"
+					class="max-w-full max-h-[90vh] object-contain transition-opacity duration-300 protected-image"
 					class:opacity-0={isLoading}
 					class:opacity-100={!isLoading}
+					class:user-select-none={$imageProtectionEnabled}
+					class:pointer-events-none={$imageProtectionEnabled}
+					draggable={!$imageProtectionEnabled}
 					on:load={handleImageLoad}
 					on:error={handleImageError}
+					on:contextmenu={handleContextMenu}
 				/>
 			{/if}
 		</div>
@@ -319,5 +324,20 @@
 	.btn-circle:hover:not(:disabled) {
 		transform: scale(1.1);
 		background-color: rgba(255, 255, 255, 0.1);
+	}
+
+	.protected-image::selection {
+		background: transparent;
+	}
+
+	.user-select-none {
+		user-select: none;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+	}
+
+	.pointer-events-none {
+		pointer-events: none;
 	}
 </style>

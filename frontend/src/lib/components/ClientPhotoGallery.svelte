@@ -4,6 +4,7 @@
 	import PhotoThumbnail from './PhotoThumbnail.svelte';
 	import ClientLightbox from './ClientLightbox.svelte';
 	import Icon from '@iconify/svelte';
+	import { imageProtectionEnabled } from '$lib/stores';
 
 	export let photos: TPhoto[];
 	export let layout: 'grid' | 'masonry' = 'grid';
@@ -95,7 +96,7 @@
 	});
 </script>
 
-<div class="photo-gallery">
+<div class="photo-gallery" class:protected-gallery={$imageProtectionEnabled}>
 	{#if photos.length === 0}
 		<div class="text-center py-20">
 			<Icon icon="mdi:camera" class="text-8xl mx-auto opacity-30" />
@@ -147,5 +148,9 @@
 		.masonry-grid {
 			column-gap: 1rem;
 		}
+	}
+
+	.protected-gallery::selection {
+		background: transparent;
 	}
 </style>
