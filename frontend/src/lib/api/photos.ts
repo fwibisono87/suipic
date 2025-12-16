@@ -34,6 +34,20 @@ export const photosApi = {
 		return response.json();
 	},
 
+	async get(photoId: number): Promise<TPhoto> {
+		const response = await fetch(`${API_URL}/photos/${photoId}`, {
+			method: 'GET',
+			headers: getAuthHeaders()
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({ message: 'Failed to fetch photo' }));
+			throw new PhotosApiError(error.message || 'Failed to fetch photo');
+		}
+
+		return response.json();
+	},
+
 	async create(albumId: number, file: File): Promise<TPhoto> {
 		const formData = new FormData();
 		formData.append('photo', file);
