@@ -12,9 +12,45 @@
 		defaultOptions: {
 			queries: {
 				staleTime: 1000 * 60 * 5,
-				refetchOnWindowFocus: false
+				gcTime: 1000 * 60 * 10,
+				refetchOnWindowFocus: false,
+				refetchOnReconnect: true,
+				refetchOnMount: true,
+				retry: (failureCount, error: any) => {
+					if (error?.response?.status === 401 || error?.response?.status === 403) {
+						return false;
+					}
+					if (error?.response?.status >= 400 && error?.response?.status < 500) {
+						return false;
+					}
+					return failureCount < 3;
+				},
+				retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+				networkMode: 'online'
+			},
+			mutations: {
+				retry: (failureCount, error: any) => {
+					if (error?.response?.status === 401 || error?.response?.status === 403) {
+						return false;
+					}
+					if (error?.response?.status >= 400 && error?.response?.status < 500) {
+						return false;
+					}
+					return failureCount < 2;
+				},
+				retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+				networkMode: 'online',
+				onError: (error: any) => {
+					console.error('Mutation error:', error);
+					if (error?.response?.status === 401) {
+						authStore.clearAuth();
+						window.location.href = '/login';
+					}
+				}
 			}
-		}
+		},
+		queryCache: undefined,
+		mutationCache: undefined
 	});
 
 	onMount(() => {
