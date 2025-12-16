@@ -23,9 +23,13 @@ Yet another photo manager - A modern, full-featured photo management application
 - **Reverse Proxy**: Nginx
 - **Containerization**: Docker & Docker Compose
 
-## Quick Start with Docker
+## Quick Start
 
-The easiest way to get started is using Docker:
+**🚀 Want to get started fast? See [QUICKSTART.md](QUICKSTART.md) for a 5-minute setup guide!**
+
+### Automated Setup (Recommended)
+
+Use the setup script for quick installation:
 
 ```bash
 # Clone the repository
@@ -33,54 +37,73 @@ git clone <repository-url>
 cd suipic
 
 # Linux/Mac
-./docker-start.sh
+chmod +x setup.sh
+./setup.sh --docker
 
 # Windows
-docker-start.bat
+.\setup.ps1 -Docker
+
+# Start all services
+./docker-start.sh    # Linux/Mac
+docker-start.bat     # Windows
 ```
 
-For detailed Docker documentation, see [DOCKER.md](DOCKER.md).
+Access the application at http://localhost with default credentials:
+- **Admin**: admin@suipic.local / admin123
+- **MinIO Console**: http://localhost:9001 (minioadmin / minioadmin)
 
-## Manual Setup
+### Manual Docker Setup
 
-### Prerequisites
+```bash
+# Copy environment configuration
+cp .env.docker .env
 
+# Edit .env with your settings (change passwords!)
+nano .env
+
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+**📖 For detailed setup instructions, see [SETUP.md](SETUP.md)**
+
+## Prerequisites
+
+### Docker Deployment (Recommended)
+- Docker 20.10+
+- Docker Compose 2.0+
+- 4GB RAM minimum (8GB recommended)
+
+### Local Development
 - Go 1.21+
 - Node.js 18+
 - PostgreSQL 15+
 - Elasticsearch 8+
-- MinIO
+- MinIO (latest)
 
-### Backend Setup
+## Local Development
+
+### Infrastructure Only (Docker)
+
+Run infrastructure services while developing locally:
 
 ```bash
+# Start PostgreSQL, Elasticsearch, and MinIO
+docker-compose -f docker-compose.infra.yml up -d
+
+# Terminal 1: Backend
 cd backend
-go mod download
-cp .env.example .env
-# Edit .env with your configuration
+cp .env.example .env  # Edit with your config
 go run cmd/migrate/main.go -action=up
 go run main.go
-```
 
-### Frontend Setup
-
-```bash
+# Terminal 2: Frontend
 cd frontend
-npm install -g pnpm
 pnpm install
 pnpm run dev
-```
-
-## Development
-
-### Using Docker for Infrastructure Only
-
-Run only the infrastructure services (PostgreSQL, Elasticsearch, MinIO) while developing the application locally:
-
-```bash
-docker-compose -f docker-compose.infra.yml up -d
-cd backend && go run main.go
-cd frontend && pnpm run dev
 ```
 
 ### Using Makefile
@@ -92,9 +115,19 @@ make logs          # View logs
 make down          # Stop all services
 ```
 
+### Development Commands
+
+See [AGENTS.md](AGENTS.md) for:
+- Build commands
+- Test commands
+- Lint commands
+- Migration commands
+
 ## Documentation
 
-- [Docker Deployment Guide](DOCKER.md) - Complete Docker setup and deployment guide
+- **[QUICKSTART.md](QUICKSTART.md)** - 5-minute quick start guide
+- **[SETUP.md](SETUP.md)** - Complete setup and deployment guide
+- [Docker Deployment Guide](DOCKER.md) - Docker-specific documentation
 - [Backend Documentation](backend/README.md) - Backend API documentation
 - [Frontend Documentation](frontend/README.md) - Frontend development guide
 - [Elasticsearch Integration](backend/ELASTICSEARCH.md) - Search functionality
@@ -133,40 +166,65 @@ suipic/
 ### Development
 
 ```bash
+./setup.sh --docker          # Linux/Mac
+.\setup.ps1 -Docker          # Windows
 docker-compose up -d
 ```
 
 ### Production
 
 ```bash
+# Review security checklist in SETUP.md
+# Update .env with production settings
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-See [DOCKER.md](DOCKER.md) for comprehensive deployment instructions including:
-- SSL/HTTPS setup
-- Environment configuration
-- Backup and restore
-- Monitoring and logs
-- Security hardening
+**Important**: Before production deployment:
+- Change all default passwords
+- Generate strong JWT secret: `openssl rand -base64 32`
+- Configure SSL/HTTPS certificates
+- Set `ENV=production`
+- Update `CORS_ORIGINS` to your domain
+- Enable database SSL
+- Set up regular backups
+
+See [SETUP.md](SETUP.md) for comprehensive deployment instructions including:
+- Security checklist
+- SSL/HTTPS configuration
+- Database backup and restore
+- Monitoring and troubleshooting
+- Production optimization
 
 ## Environment Variables
 
-Key configuration options (see `.env.docker` for full list):
+All configuration is done via environment variables. Key settings:
 
 ```env
 # Database
-POSTGRES_PASSWORD=changeme
+DB_HOST=postgres
+DB_PASSWORD=strong_password_here
 
-# Security
-JWT_SECRET=your-secret-key-here
+# Security  
+JWT_SECRET=generate-with-openssl-rand-base64-32
 
-# Admin User
+# Admin User (created automatically on first start)
 ADMIN_EMAIL=admin@suipic.local
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=change_me_immediately
+ADMIN_USERNAME=admin
 
 # Storage
-MINIO_ROOT_PASSWORD=changeme
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=strong_secret_here
+MINIO_BUCKET=suipic
+
+# Search
+ES_ADDRESSES=http://elasticsearch:9200
+
+# CORS
+CORS_ORIGINS=http://localhost,https://yourdomain.com
 ```
+
+See [SETUP.md](SETUP.md) for complete environment variable documentation.
 
 ## API Endpoints
 
@@ -194,6 +252,14 @@ Default credentials:
 - **Admin**: admin@suipic.local / admin123
 - **MinIO**: minioadmin / minioadmin
 - **PostgreSQL**: suipic / suipic_password
+
+## License
+
+[Add your license here]
+
+## Contributing
+
+[Add contribution guidelines here]
 
 ## License
 
