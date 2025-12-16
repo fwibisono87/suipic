@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { beforeNavigate } from '$app/navigation';
+	import { useQueryClient } from '@tanstack/svelte-query';
 	import Icon from '@iconify/svelte';
-	import { albumsApi, photosApi, photographerApi } from '$lib/api';
+	import { photosApi } from '$lib/api';
 	import { LoadingSpinner, Alert, ConfirmModal, PhotoGallery, PhotoUploadModal } from '$lib/components';
 	import { formatDate } from '$lib/utils';
-	import { isAuthenticated, currentUser, authToken } from '$lib/stores';
+	import { isAuthenticated, currentUser } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
+	import { useAlbumQuery, useAlbumUsersQuery, useDeleteAlbumMutation } from '$lib/queries/albums';
+	import { usePhotosQuery } from '$lib/queries/photos';
+	import { useListClients } from '$lib/queries/photographer';
 	import { onMount } from 'svelte';
 
 	$: albumId = parseInt($page.params.id);
@@ -16,7 +20,6 @@
 
 	let showUploadModal = false;
 	let showDeleteModal = false;
-	let isDeleting = false;
 	let deleteError = '';
 	let galleryLayout: 'grid' | 'masonry' = 'grid';
 	let isUploading = false;
@@ -27,17 +30,14 @@
 		}
 	});
 
-	const albumQuery = createQuery({
-		queryKey: ['album', albumId],
-		queryFn: () => albumsApi.get(albumId),
-		enabled: $isAuthenticated && !!albumId
+	beforeNavigate(() => {
+		queryClient.invalidateQueries({ queryKey: ['album', albumId] });
+		queryClient.invalidateQueries({ queryKey: ['photos', albumId] });
+		queryClient.invalidateQueries({ queryKey: ['albumUsers', albumId] });
 	});
 
-	const photosQuery = createQuery({
-		queryKey: ['photos', albumId],
-		queryFn: () => photosApi.listByAlbum(albumId),
-		enabled: $isAuthenticated && !!albumId
-	});
+	$: albumQuery = useAlbumQuery(albumId, $isAuthenticated && !!albumId);
+	$: photosQuery = usePhotosQuery(albumId, $isAuthenticated && !!albumId);
 
 	const canManage = () => {
 		if (!$albumQuery.data || !$currentUser) return false;
@@ -47,22 +47,15 @@
 		);
 	};
 
-	const albumUsersQuery = createQuery({
-		queryKey: ['albumUsers', albumId],
-		queryFn: () => albumsApi.getUsers(albumId),
-		enabled: $isAuthenticated && !!albumId && canManage()
-	});
-
-	const clientsQuery = createQuery({
-		queryKey: ['clients'],
-		queryFn: () => photographerApi.listClients($authToken || ''),
-		enabled: $isAuthenticated && !!$authToken && canManage()
-	});
+	$: albumUsersQuery = useAlbumUsersQuery(albumId, $isAuthenticated && !!albumId && canManage());
+	$: clientsQuery = useListClients();
 
 	$: assignedClients =
 		$albumUsersQuery.data && $clientsQuery.data
 			? $clientsQuery.data.filter((client) => $albumUsersQuery.data?.includes(client.id))
 			: [];
+
+	const deleteAlbumMutation = useDeleteAlbumMutation();
 
 	const handleFileSelect = async (e: Event) => {
 		const target = e.target as HTMLInputElement;
@@ -88,17 +81,13 @@
 
 	const handleDelete = async () => {
 		deleteError = '';
-		isDeleting = true;
 
 		try {
-			await albumsApi.delete(albumId);
-			queryClient.invalidateQueries({ queryKey: ['albums'] });
+			await $deleteAlbumMutation.mutateAsync(albumId);
 			goto('/albums');
 		} catch (err: unknown) {
 			deleteError = (err as { message: string }).message || 'Failed to delete album';
 			showDeleteModal = false;
-		} finally {
-			isDeleting = false;
 		}
 	};
 

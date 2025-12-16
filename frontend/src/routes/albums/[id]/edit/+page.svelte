@@ -1,17 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { createQuery } from '@tanstack/svelte-query';
-	import { albumsApi } from '$lib/api';
+	import { beforeNavigate } from '$app/navigation';
+	import { useQueryClient } from '@tanstack/svelte-query';
 	import { Alert, AlbumForm, LoadingSpinner } from '$lib/components';
 	import { isAuthenticated, currentUser } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
+	import { useAlbumQuery, useUpdateAlbumMutation, useAssignUsersMutation } from '$lib/queries/albums';
 	import { onMount } from 'svelte';
 
 	$: albumId = parseInt($page.params.id);
 
-	let isLoading = false;
 	let error = '';
+	const queryClient = useQueryClient();
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -20,11 +21,14 @@
 		}
 	});
 
-	const albumQuery = createQuery({
-		queryKey: ['album', albumId],
-		queryFn: () => albumsApi.get(albumId),
-		enabled: $isAuthenticated && !!albumId
+	beforeNavigate(() => {
+		queryClient.invalidateQueries({ queryKey: ['album', albumId] });
+		queryClient.invalidateQueries({ queryKey: ['albums'] });
 	});
+
+	$: albumQuery = useAlbumQuery(albumId, $isAuthenticated && !!albumId);
+	$: updateAlbumMutation = useUpdateAlbumMutation(albumId);
+	$: assignUsersMutation = useAssignUsersMutation(albumId);
 
 	$: if (
 		$albumQuery.data &&
@@ -47,7 +51,6 @@
 
 	const handleSubmit = async (formData: AlbumFormData) => {
 		error = '';
-		isLoading = true;
 
 		try {
 			const albumData = {
@@ -59,17 +62,15 @@
 				thumbnailPhotoId: formData.thumbnailPhotoId
 			};
 
-			await albumsApi.update(albumId, albumData);
+			await $updateAlbumMutation.mutateAsync(albumData);
 
 			if (formData.clientIds && formData.clientIds.length > 0) {
-				await albumsApi.assignUsers(albumId, formData.clientIds);
+				await $assignUsersMutation.mutateAsync(formData.clientIds);
 			}
 
 			goto(`/albums/${albumId}`);
 		} catch (err: unknown) {
 			error = (err as { message: string }).message || 'Failed to update album';
-		} finally {
-			isLoading = false;
 		}
 	};
 
@@ -109,7 +110,12 @@
 
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body">
-					<AlbumForm album={$albumQuery.data} onSubmit={handleSubmit} onCancel={handleCancel} {isLoading} />
+					<AlbumForm 
+						album={$albumQuery.data} 
+						onSubmit={handleSubmit} 
+						onCancel={handleCancel} 
+						isLoading={$updateAlbumMutation.isPending || $assignUsersMutation.isPending} 
+					/>
 				</div>
 			</div>
 		</div>

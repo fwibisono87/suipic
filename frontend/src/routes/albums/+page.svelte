@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { createQuery } from '@tanstack/svelte-query';
 	import { goto } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
+	import { useQueryClient } from '@tanstack/svelte-query';
 	import Icon from '@iconify/svelte';
-	import { albumsApi } from '$lib/api';
 	import { LoadingSpinner, Alert } from '$lib/components';
 	import { formatDate } from '$lib/utils';
 	import { isAuthenticated, currentUser } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
+	import { useAlbumsQuery } from '$lib/queries/albums';
 	import { onMount } from 'svelte';
 
 	let viewMode: 'grid' | 'table' = 'grid';
+	const queryClient = useQueryClient();
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -17,11 +19,11 @@
 		}
 	});
 
-	const albumsQuery = createQuery({
-		queryKey: ['albums'],
-		queryFn: () => albumsApi.list(),
-		enabled: $isAuthenticated
+	beforeNavigate(() => {
+		queryClient.invalidateQueries({ queryKey: ['albums'] });
 	});
+
+	const albumsQuery = useAlbumsQuery();
 
 	const handleAlbumClick = (albumId: number) => {
 		goto(`/albums/${albumId}`);

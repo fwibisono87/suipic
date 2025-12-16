@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { albumsApi } from '$lib/api';
+	import { beforeNavigate } from '$app/navigation';
+	import { useQueryClient } from '@tanstack/svelte-query';
 	import { Alert, AlbumForm } from '$lib/components';
 	import { isAuthenticated, currentUser } from '$lib/stores';
 	import { EUserRole } from '$lib/types';
+	import { useCreateAlbumMutation } from '$lib/queries/albums';
+	import { albumsApi } from '$lib/api';
 	import { onMount } from 'svelte';
 
-	let isLoading = false;
 	let error = '';
+	const queryClient = useQueryClient();
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -23,6 +26,12 @@
 		}
 	});
 
+	beforeNavigate(() => {
+		queryClient.invalidateQueries({ queryKey: ['albums'] });
+	});
+
+	const createAlbumMutation = useCreateAlbumMutation();
+
 	interface AlbumFormData {
 		title: string;
 		description: string | null;
@@ -35,7 +44,6 @@
 
 	const handleSubmit = async (formData: AlbumFormData) => {
 		error = '';
-		isLoading = true;
 
 		try {
 			const albumData = {
@@ -46,17 +54,16 @@
 				customFields: formData.customFields
 			};
 
-			const album = await albumsApi.create(albumData);
+			const album = await $createAlbumMutation.mutateAsync(albumData);
 
 			if (formData.clientIds && formData.clientIds.length > 0) {
 				await albumsApi.assignUsers(album.id, formData.clientIds);
+				queryClient.invalidateQueries({ queryKey: ['albumUsers', album.id] });
 			}
 
 			goto(`/albums/${album.id}`);
 		} catch (err: unknown) {
 			error = (err as { message: string }).message || 'Failed to create album';
-		} finally {
-			isLoading = false;
 		}
 	};
 
@@ -87,7 +94,11 @@
 
 	<div class="card bg-base-100 shadow-xl">
 		<div class="card-body">
-			<AlbumForm onSubmit={handleSubmit} onCancel={handleCancel} {isLoading} />
+			<AlbumForm 
+				onSubmit={handleSubmit} 
+				onCancel={handleCancel} 
+				isLoading={$createAlbumMutation.isPending} 
+			/>
 		</div>
 	</div>
 </div>
