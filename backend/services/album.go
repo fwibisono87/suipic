@@ -43,22 +43,7 @@ func (s *AlbumService) ListAlbums(ctx context.Context, photographerID *int, user
 	}
 
 	if userID != nil {
-		albumUsers, err := s.albumUserRepo.GetByUser(ctx, *userID)
-		if err != nil {
-			return nil, err
-		}
-
-		var albums []*models.Album
-		for _, au := range albumUsers {
-			album, err := s.albumRepo.GetByID(ctx, au.AlbumID)
-			if err != nil {
-				return nil, err
-			}
-			if album != nil {
-				albums = append(albums, album)
-			}
-		}
-		return albums, nil
+		return s.albumRepo.GetByUserID(ctx, *userID)
 	}
 
 	return s.albumRepo.List(ctx, 1000, 0)
@@ -98,16 +83,5 @@ func (s *AlbumService) CanUserAccessAlbum(ctx context.Context, userID int, album
 		return true, nil
 	}
 
-	albumUsers, err := s.albumUserRepo.GetByAlbum(ctx, albumID)
-	if err != nil {
-		return false, err
-	}
-
-	for _, au := range albumUsers {
-		if au.UserID == userID {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return s.albumUserRepo.IsUserInAlbum(ctx, userID, albumID)
 }

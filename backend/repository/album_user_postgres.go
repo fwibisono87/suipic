@@ -211,3 +211,17 @@ func (r *PostgresAlbumUserRepository) DeleteByAlbum(ctx context.Context, albumID
 	}
 	return nil
 }
+func (r *PostgresAlbumUserRepository) IsUserInAlbum(ctx context.Context, userID, albumID int) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM album_users
+			WHERE user_id = $1 AND album_id = $2
+		)
+	`
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, userID, albumID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if user is in album: %w", err)
+	}
+	return exists, nil
+}

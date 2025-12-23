@@ -5,10 +5,30 @@
 	import { onMount } from 'svelte';
 	import { LoadingSpinner } from '$lib/components';
 	import { EUserRole } from '$lib/types';
+	import { PUBLIC_API_URL } from '$env/static/public';
 
-	onMount(() => {
+	let stats: any = null;
+
+	onMount(async () => {
 		if (!$isAuthenticated) {
 			goto('/login');
+			return;
+		}
+
+		if ($currentUser?.role === EUserRole.ADMIN) {
+			try {
+				const token = localStorage.getItem('token');
+				const res = await fetch(`${PUBLIC_API_URL}/admin/stats`, {
+					headers: {
+						'Authorization': `Bearer ${token}`
+					}
+				});
+				if (res.ok) {
+					stats = await res.json();
+				}
+			} catch (e) {
+				console.error('Failed to fetch stats', e);
+			}
 		}
 	});
 </script>
@@ -47,7 +67,7 @@
 						<Icon icon="mdi:image-multiple" class="text-4xl" />
 					</div>
 					<div class="stat-title">Total Albums</div>
-					<div class="stat-value text-primary">-</div>
+					<div class="stat-value text-primary">{stats?.totalAlbums || 0}</div>
 					<div class="stat-desc">View all your albums</div>
 				</div>
 			</div>
@@ -58,7 +78,7 @@
 						<Icon icon="mdi:camera" class="text-4xl" />
 					</div>
 					<div class="stat-title">Total Photos</div>
-					<div class="stat-value text-secondary">-</div>
+					<div class="stat-value text-secondary">{stats?.totalPhotos || 0}</div>
 					<div class="stat-desc">Across all albums</div>
 				</div>
 			</div>
@@ -66,11 +86,11 @@
 			<div class="stats shadow">
 				<div class="stat">
 					<div class="stat-figure text-accent">
-						<Icon icon="mdi:clock-outline" class="text-4xl" />
+						<Icon icon="mdi:account" class="text-4xl" />
 					</div>
-					<div class="stat-title">Recent Activity</div>
-					<div class="stat-value text-accent">-</div>
-					<div class="stat-desc">Last 7 days</div>
+					<div class="stat-title">Total Users</div>
+					<div class="stat-value text-accent">{stats?.totalUsers || 0}</div>
+					<div class="stat-desc">Registered users</div>
 				</div>
 			</div>
 		</div>

@@ -201,3 +201,44 @@ func (r *PostgresAlbumRepository) GetByPhotographer(ctx context.Context, photogr
 
 	return albums, nil
 }
+func (r *PostgresAlbumRepository) GetByUserID(ctx context.Context, userID int) ([]*models.Album, error) {
+	query := `
+		SELECT a.id, a.title, a.date_taken, a.description, a.location, a.custom_fields, a.thumbnail_photo_id, a.photographer_id, a.created_at, a.updated_at
+		FROM albums a
+		JOIN album_users au ON a.id = au.album_id
+		WHERE au.user_id = $1
+		ORDER BY a.created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get albums by user id: %w", err)
+	}
+	defer rows.Close()
+
+	var albums []*models.Album
+	for rows.Next() {
+		album := &models.Album{}
+		err := rows.Scan(
+			&album.ID,
+			&album.Title,
+			&album.DateTaken,
+			&album.Description,
+			&album.Location,
+			&album.CustomFields,
+			&album.ThumbnailPhotoID,
+			&album.PhotographerID,
+			&album.CreatedAt,
+			&album.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan album: %w", err)
+		}
+		albums = append(albums, album)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating albums: %w", err)
+	}
+
+	return albums, nil
+}

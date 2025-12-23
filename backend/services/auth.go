@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -52,13 +53,24 @@ func (s *AuthService) seedAdminUser() error {
 	if err != nil {
 		return err
 	}
-	if existingUser != nil {
-		return nil
-	}
 
 	hashedPassword, err := s.HashPassword(s.adminPass)
 	if err != nil {
 		return fmt.Errorf("failed to hash admin password: %w", err)
+	}
+
+	if existingUser != nil {
+		// Update existing admin user's password if it doesn't match
+		if err := s.CheckPassword(existingUser.PasswordHash, s.adminPass); err != nil {
+			existingUser.PasswordHash = hashedPassword
+			// Ensure role is admin
+			existingUser.Role = models.RoleAdmin
+			if err := s.dbService.GetUserRepo().Update(context.Background(), existingUser); err != nil {
+				return fmt.Errorf("failed to update admin user: %w", err)
+			}
+			fmt.Println("Admin user password updated from environment configuration")
+		}
+		return nil
 	}
 
 	_, err = s.dbService.CreateUser(s.adminEmail, s.adminUser, hashedPassword, models.RoleAdmin)

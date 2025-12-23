@@ -81,6 +81,14 @@ func (h *AdminHandler) GetSettings(c *fiber.Ctx) error {
 	})
 }
 
+func (h *AdminHandler) GetStats(c *fiber.Ctx) error {
+	stats, err := h.dbService.GetGlobalStats(c.Context())
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch stats")
+	}
+	return c.JSON(stats)
+}
+
 type UpdateSettingRequest struct {
 	Value string `json:"value"`
 }

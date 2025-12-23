@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -303,4 +304,27 @@ func (s *DatabaseService) GetUserRepo() repository.UserRepository {
 
 func (s *DatabaseService) GetSystemSettingsRepo() repository.SystemSettingsRepository {
 	return repository.NewPostgresSystemSettingsRepository(s.db)
+}
+type GlobalStats struct {
+	TotalUsers  int64 `json:"totalUsers"`
+	TotalAlbums int64 `json:"totalAlbums"`
+	TotalPhotos int64 `json:"totalPhotos"`
+}
+
+func (s *DatabaseService) GetGlobalStats(ctx context.Context) (*GlobalStats, error) {
+	stats := &GlobalStats{}
+
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&stats.TotalUsers); err != nil {
+		return nil, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM albums").Scan(&stats.TotalAlbums); err != nil {
+		return nil, fmt.Errorf("failed to count albums: %w", err)
+	}
+
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM photos").Scan(&stats.TotalPhotos); err != nil {
+		return nil, fmt.Errorf("failed to count photos: %w", err)
+	}
+
+	return stats, nil
 }

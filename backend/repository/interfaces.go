@@ -24,6 +24,7 @@ type AlbumRepository interface {
 	Delete(ctx context.Context, id int) error
 	List(ctx context.Context, limit, offset int) ([]*models.Album, error)
 	GetByPhotographer(ctx context.Context, photographerID int) ([]*models.Album, error)
+	GetByUserID(ctx context.Context, userID int) ([]*models.Album, error)
 }
 
 type PhotoRepository interface {
@@ -44,6 +45,7 @@ type AlbumUserRepository interface {
 	List(ctx context.Context, limit, offset int) ([]*models.AlbumUser, error)
 	GetByAlbum(ctx context.Context, albumID int) ([]*models.AlbumUser, error)
 	GetByUser(ctx context.Context, userID int) ([]*models.AlbumUser, error)
+	IsUserInAlbum(ctx context.Context, userID, albumID int) (bool, error)
 }
 
 type CommentRepository interface {
