@@ -26,7 +26,7 @@ export type TPublicSettings = {
 
 export const settingsApi = {
 	async getSettings(): Promise<TSystemSettings[]> {
-		const response = await fetch(`${API_URL}/settings`, {
+		const response = await fetch(`${API_URL}/admin/settings`, {
 			method: 'GET',
 			headers: getAuthHeaders()
 		});
@@ -40,7 +40,7 @@ export const settingsApi = {
 	},
 
 	async updateSetting(settingKey: string, data: TUpdateSettingRequest): Promise<TSystemSettings> {
-		const response = await fetch(`${API_URL}/settings/${settingKey}`, {
+		const response = await fetch(`${API_URL}/admin/settings/${settingKey}`, {
 			method: 'PUT',
 			headers: getAuthHeaders(),
 			body: JSON.stringify(data)
